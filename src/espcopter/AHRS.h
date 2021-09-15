@@ -13,6 +13,15 @@ class AHRS {
     void writeBIT(int addr, int data, int adrrTrans);
     void I2Cread(uint8_t Address, uint8_t Register, uint8_t Nbytes, uint8_t* Data);
     void compute(float attitude[3], float rate[3] , float attitudeRadian[3] , float rateRadian[3]);
+    void EKF_prediction(); //[Adriano]
+    void EKF_update(float z_pos[3], float z_quat[4]); //[Adriano]
+    void EKF_getStates(float states[9]); //[Adriano]
+    void quat2eul(float q_in[4], float ang_out[3]); //[Adriano]
+    void eul2quat(float ang_in[3], float quat_out[4]); //[Adriano]
+    void quat_normalize(float q_in[4], float q_out[4]);
+    void quat_multiply(float qa[4], float qb[4], float q_out[4]); //[Adriano]
+    void quat_vec_transform(float q_in[4], float v_in[3], float v_out[3]); //[Adriano]
+    
     void normalize(float output[3], int16_t input[3]);
     void setZero();
     void headingMag(float attitude_rate[3], float  input[3], float degree[4], float throttle );
@@ -54,12 +63,22 @@ class AHRS {
     float accel_angle[3] = {0}, angle_acc[3] = {0};
 
     float gyro[3] = {0}, degree[3] = {0};
+    float accel_si[3] = {0}; //[Adriano] acceleration in m/s2
 
     float destination[3] = {1, 1, 1};
     float destination2[3] = {1, 1, 1};
 
+    //float EKF_states[15] = {0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0}; //[x,y,z, vx,vy,vz, phi,theta,psi, bax,bay,baz, bgx,bgy,bgz]
+    float EKF_states[16] = {0,0,0, 0,0,0, 0,0,0,0, 0,0,0, 0,0,0}; //[x,y,z, vx,vy,vz, qw,qx,qy,qz, bax,bay,baz, bgx,bgy,bgz]
+
   private:
-    
+
+    //[Adriano]
+//    //float EKF_states[15] = {0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0}; //[x,y,z, vx,vy,vz, phi,theta,psi, bax,bay,baz, bgx,bgy,bgz]
+//    float EKF_states[16] = {0,0,0, 0,0,0, 0,0,0,0, 0,0,0, 0,0,0}; //[x,y,z, vx,vy,vz, qw,qx,qy,qz, bax,bay,baz, bgx,bgy,bgz]
+    float EKF_gyro[3] = {0,0,0}; //gyro filtered?
+    float EKF_acc[3] = {0,0,0}; //gyro filtered?
+
     int16_t Filter_P[3] = {0}, Filter_I[3] = {0}, Filter_SUM[3] = {0}, delta = 0, _angle[3] = {0};
     float _rate[3] = {0}, test = 0, rate[3] = {0};
     float _w = 0, ic = 0.001, I = 0;

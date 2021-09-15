@@ -112,6 +112,333 @@ float AHRS::deg2rad(float deg) {
 }
 
 
+
+
+//[Adriano]
+void AHRS::EKF_getStates(float states[9]) {
+
+  for(i=0; i<9; i++){
+    states[i] = EKF_states[i];
+  }
+}
+
+
+//[Adriano]
+void AHRS::EKF_prediction() {
+  
+  int a = 1;
+
+  timenow = millis();
+  dt = (float)(timenow - timeprev) / 978.;
+  timeprev = timenow;
+
+  if (dt > -1) {
+    
+    // Get Raw Data From IMU
+    I2Cread(MPU9250_ADDRESS, 0x3B, 14, Buf);
+    
+      // Accelerometer
+    accel[0] = (Buf[0] << 8 | Buf[1]);
+    accel[1] = (Buf[2] << 8 | Buf[3]);
+    accel[2] = Buf[4] << 8 | Buf[5];
+    //Convert to m/s2 and correct the frame (x forward and z up)
+    accel_si[0] = (accel[1] / 1685.0); //fine tunning
+    accel_si[1] = -(accel[0] / 1640.3); //fine tunning
+    accel_si[2] = (accel[2] / 1461.4); //fine tunning
+    
+    // Gyroscope
+    gyro_int[0] = (Buf[8] << 8 | Buf[9]) - MEAN_GYRO[0];
+    gyro_int[1] = (Buf[10] << 8 | Buf[11]) - MEAN_GYRO[1];
+    gyro_int[2] = Buf[12] << 8 | Buf[13] - MEAN_GYRO[2];
+    //Convert to rad/s and correct the frame (x forward and z up)
+    gyro[0] = (gyro_int[1] / GYRO_LSB) * DEG2RAD;
+    gyro[1] = -(gyro_int[0] / GYRO_LSB) * DEG2RAD;
+    gyro[2] = (gyro_int[2] / GYRO_LSB) * DEG2RAD;
+
+    //filter gyro and acc?
+
+
+//    float phi = EKF_states[6];
+//    float theta = EKF_states[7];
+//    float psi = EKF_states[8];
+//
+//    float phi_d = gyro[0] + sin(phi)*tan(theta)*gyro[1] + cos(phi)*tan(theta)*gyro[2];
+//    float theta_d = cos(phi)*gyro[1] -sin(phi)*gyro[2];
+//    float psi_d = sin(phi)/cos(theta)*gyro[1] + cos(phi)/cos(theta)*gyro[2];
+
+    float qw = EKF_states[6];
+    float qx = EKF_states[7];
+    float qy = EKF_states[8];
+    float qz = EKF_states[9];
+
+    float qw_d = 0.5*(-qx*gyro[0] - qy*gyro[1] - qz*gyro[2]);
+    float qx_d = 0.5*(qw*gyro[0] - qz*gyro[1] + qy*gyro[2]);
+    float qy_d = 0.5*(qz*gyro[0] + qw*gyro[1] - qx*gyro[2]);
+    float qz_d = 0.5*(-qy*gyro[0] + qx*gyro[1] + qw*gyro[2]);
+
+//d_quat = 0.5*[-qx*wx - qy*wy - qz*wz;
+//              qw*wx - qz*wy + qy*wz;
+//              qz*wx + qw*wy - qx*wz;
+//              -qy*wx + qx*wy + qw*wz];
+
+
+    float quat[4] = {EKF_states[6], EKF_states[7], EKF_states[8], EKF_states[9]};
+    float ang[3] = {0,0,0};
+    quat2eul(quat, ang);
+    //Compute velocity in world frame
+    float vel_w[3];
+    vel_w[0] = (cos(ang[1])*cos(ang[2]))*EKF_states[3] + (sin(ang[0])*sin(ang[1])*cos(ang[2])-cos(ang[0])*sin(ang[2]))*EKF_states[4] + (cos(ang[0])*sin(ang[1])*cos(ang[2])+sin(ang[0])*sin(ang[2]))*EKF_states[5];
+    vel_w[1] = (cos(ang[1])*sin(ang[2]))*EKF_states[3] + (sin(ang[0])*sin(ang[1])*sin(ang[2])+cos(ang[0])*cos(ang[2]))*EKF_states[4] + (cos(ang[0])*sin(ang[1])*sin(ang[2])-sin(ang[0])*cos(ang[2]))*EKF_states[5];
+    vel_w[2] = (-sin(ang[1]))*EKF_states[3] + (sin(ang[0])*cos(ang[1]))*EKF_states[4] + (cos(ang[0])*cos(ang[1]))*EKF_states[5];
+    //CONSIDER USING THE quat_vec_transform INSTEAD
+
+
+    
+    //Propagate positions
+    EKF_states[0] = EKF_states[0] + vel_w[0]*dt;
+    EKF_states[1] = EKF_states[1] + vel_w[1]*dt;
+    EKF_states[2] = EKF_states[2] + vel_w[2]*dt;
+    //Propagate velocities
+    EKF_states[3] = EKF_states[3] + 0*dt;
+    EKF_states[4] = EKF_states[4] + 0*dt;
+    EKF_states[5] = EKF_states[5] + 0*dt;
+//    //Propagate angles
+//    EKF_states[6] = EKF_states[6] + phi_d*dt;
+//    EKF_states[7] = EKF_states[7] + theta_d*dt;
+//    EKF_states[8] = EKF_states[8] + psi_d*dt;
+    //Propagate quaternion
+    EKF_states[6] = EKF_states[6] + qw_d*dt;
+    EKF_states[7] = EKF_states[7] + qx_d*dt;
+    EKF_states[8] = EKF_states[8] + qy_d*dt;
+    EKF_states[9] = EKF_states[9] + qz_d*dt;
+
+
+//    JT << 1.0, sin(phi)*tan(theta), cos(phi)*tan(theta),
+//          0.0, cos(phi), -sin(phi),
+//          0.0, sin(phi)/cos(theta), cos(phi)/cos(theta);
+    
+// R_bw << (cos(theta)*cos(psi)), (sin(phi)*sin(theta)*cos(psi)-cos(phi)*sin(psi)), (cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi)),
+//          (cos(theta)*sin(psi)), (sin(phi)*sin(theta)*sin(psi)+cos(phi)*cos(psi)), (cos(phi)*sin(theta)*sin(psi)-sin(phi)*cos(psi)),
+//          (-sin(theta)), (sin(phi)*cos(theta)), (cos(phi)*cos(theta));
+
+
+
+    //------------------------------------------------------------------
+    //Perform velocity correction with an inderect measurement from IMU?
+    //Estimate air resistance model
+    //------------------------------------------------------------------
+
+
+
+  }
+ 
+}
+
+
+//[Adriano]
+unsigned int last_mocap = micros();
+float last_pos[3] = {0, 0, 0};
+float dt_vel = 0;
+void AHRS::EKF_update(float z_pos[3], float z_quat[4] ) {
+  dt_vel = (float) (micros()-last_mocap)/1000000.0;
+  last_mocap = micros();
+//  if(dt<0 || dt>0.1){
+//    return;
+//  }
+//  sprintf(mbuf, "\33[46m[%s] Doing update\33[0m", drone_name.c_str());
+//  nh.loginfo(mbuf);
+
+
+  float quat[4] = {EKF_states[6], EKF_states[7], EKF_states[8], EKF_states[9]};
+  float ang[3] = {0,0,0};
+  quat2eul(quat, ang);
+
+  float z_ang[3] = {0,0,0};
+  quat2eul(z_quat, z_ang);
+//  float z_phi = z_ang[0];
+//  float z_theta = z_ang[1];
+//  float z_psi = z_ang[2];
+  
+//  float sinr_cosp = +2.0 * (z_quat[0] * z_quat[1] + z_quat[2] * z_quat[3]);
+//  float cosr_cosp = +1.0 - 2.0 * (z_quat[1] * z_quat[1] + z_quat[2] * z_quat[2]);
+//  z_phi = atan2(sinr_cosp, cosr_cosp);
+//
+//  // pitch (y-axis rotation)
+//  float sinp = +2.0 * (z_quat[0] * z_quat[2] - z_quat[3] * z_quat[1]);
+//  if (fabs(sinp) >= 1)
+//    z_theta = copysign(M_PI / 2, sinp); // use 90 degrees if out of range
+//  else
+//    z_theta = asin(sinp);
+//
+//  // yaw (z-axis rotation)
+//  float siny_cosp = +2.0 * (z_quat[0] * z_quat[3] + z_quat[1] * z_quat[2]);
+//  float cosy_cosp = +1.0 - 2.0 * (z_quat[2] * z_quat[2] + z_quat[3] * z_quat[3]);
+//  z_psi = atan2(siny_cosp, cosy_cosp);
+
+
+  
+  float z_vel_w[3];
+  z_vel_w[0] = (z_pos[0]-last_pos[0])/dt_vel;
+  z_vel_w[1] = (z_pos[1]-last_pos[1])/dt_vel;
+  z_vel_w[2] = (z_pos[2]-last_pos[2])/dt_vel;
+  last_pos[0] = z_pos[0];
+  last_pos[1] = z_pos[1];
+  last_pos[2] = z_pos[2];
+
+float z_vel_b[3];
+float phi = z_ang[0];
+float theta = z_ang[1];
+float psi = z_ang[2];
+//z_vel_b[0] = (cos(theta)*cos(psi))*z_vel_w[0] + (sin(phi)*sin(theta)*cos(psi)-cos(phi)*sin(psi))*z_vel_w[1] + (cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi))*z_vel_w[2];
+//z_vel_b[1] = (cos(theta)*sin(psi))*z_vel_w[0] + (sin(phi)*sin(theta)*sin(psi)+cos(phi)*cos(psi))*z_vel_w[1] + (cos(phi)*sin(theta)*sin(psi)-sin(phi)*cos(psi))*z_vel_w[2];
+//z_vel_b[2] = (-sin(theta))*z_vel_w[0] + (sin(phi)*cos(theta))*z_vel_w[1] + (cos(phi)*cos(theta))*z_vel_w[2];
+z_vel_b[0] = (cos(theta)*cos(psi))*z_vel_w[0] + (cos(theta)*sin(psi))*z_vel_w[1] + (-sin(theta))*z_vel_w[2];
+z_vel_b[1] = (sin(phi)*sin(theta)*cos(psi)-cos(phi)*sin(psi))*z_vel_w[0] + (sin(phi)*sin(theta)*sin(psi)+cos(phi)*cos(psi))*z_vel_w[1] + (sin(phi)*cos(theta))*z_vel_w[2];
+z_vel_b[2] = (cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi))*z_vel_w[0] + (cos(phi)*sin(theta)*sin(psi)-sin(phi)*cos(psi))*z_vel_w[1] + (cos(phi)*cos(theta))*z_vel_w[2];
+//CONSIDER USING THE quat_vec_transform INSTEAD
+
+
+  // R_bw << (cos(theta)*cos(psi)), (sin(phi)*sin(theta)*cos(psi)-cos(phi)*sin(psi)), (cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi)),
+//          (cos(theta)*sin(psi)), (sin(phi)*sin(theta)*sin(psi)+cos(phi)*cos(psi)), (cos(phi)*sin(theta)*sin(psi)-sin(phi)*cos(psi)),
+//          (-sin(theta)), (sin(phi)*cos(theta)), (cos(phi)*cos(theta));
+
+
+
+
+  float K_pos = 0.4;
+  EKF_states[0] = EKF_states[0] + K_pos*(z_pos[0]-EKF_states[0]);
+  EKF_states[1] = EKF_states[1] + K_pos*(z_pos[1]-EKF_states[1]);
+  EKF_states[2] = EKF_states[2] + K_pos*(z_pos[2]-EKF_states[2]);
+
+
+  float K_vel = 0.2;
+  EKF_states[3] = EKF_states[3] + K_vel*(z_vel_b[0]-EKF_states[3]);
+  EKF_states[4] = EKF_states[4] + K_vel*(z_vel_b[1]-EKF_states[4]);
+  EKF_states[5] = EKF_states[5] + K_vel*(z_vel_b[2]-EKF_states[5]);
+
+  
+//  float K_angles = 0.4;
+//  EKF_states[6] = EKF_states[6] + K_angles*sin(z_phi-EKF_states[6]);
+//  EKF_states[7] = EKF_states[7] + K_angles*sin(z_theta-EKF_states[7]);
+//  EKF_states[8] = EKF_states[8] + K_angles*sin(z_psi-EKF_states[8]);
+  float K_angles = 0.4;
+  ang[0] = ang[0] + K_angles*sin(z_ang[0]-ang[0]);
+  ang[1] = ang[1] + K_angles*sin(z_ang[1]-ang[1]);
+  ang[2] = ang[2] + K_angles*sin(z_ang[2]-ang[2]);
+  eul2quat(ang, quat);
+  EKF_states[6] = quat[0];
+  EKF_states[7] = quat[1];
+  EKF_states[8] = quat[2];
+  EKF_states[9] = quat[3];
+  //CONSIDER DOING THIS UPDATE DIRECTLY WITH QUATERNIONS
+
+
+
+
+
+
+  //This function should be called every time a pose data is received
+
+  //get the measured data
+
+  //compute Kalman gain
+
+  //Correct states
+
+  //Correct covariance
+
+  
+}
+
+
+//Function to convert a quaternion to euler angles
+void AHRS::quat2eul(float q_in[4], float ang_out[3]) {
+
+
+  float sinr_cosp = +2.0 * (q_in[0] * q_in[1] + q_in[2] * q_in[3]);
+  float cosr_cosp = +1.0 - 2.0 * (q_in[1] * q_in[1] + q_in[2] * q_in[2]);
+  ang_out[0] = atan2(sinr_cosp, cosr_cosp);
+  
+  // pitch (y-axis rotation)
+  float sinp = +2.0 * (q_in[0] * q_in[2] - q_in[3] * q_in[1]);
+  if (fabs(sinp) >= 1)
+    ang_out[1] = copysign(M_PI / 2, sinp); // use 90 degrees if out of range
+  else
+    ang_out[1] = asin(sinp);
+  
+  // yaw (z-axis rotation)
+  float siny_cosp = +2.0 * (q_in[0] * q_in[3] + q_in[1] * q_in[2]);
+  float cosy_cosp = +1.0 - 2.0 * (q_in[2] * q_in[2] + q_in[3] * q_in[3]);
+  ang_out[2] = atan2(siny_cosp, cosy_cosp);
+  
+}
+
+
+//Function to convert euler angles to a quaternion
+void AHRS::eul2quat(float ang_in[3], float q_out[4]) {
+
+  float cy = cos(ang_in[2] * 0.5); //yaw
+  float sy = sin(ang_in[2] * 0.5); //yaw
+  float cp = cos(ang_in[1] * 0.5); //pitch
+  float sp = sin(ang_in[1] * 0.5); //pitch
+  float cr = cos(ang_in[1] * 0.5); //roll
+  float sr = sin(ang_in[1] * 0.5); //roll
+  
+  q_out[0] = cy * cp * cr + sy * sp * sr;
+  q_out[1] = cy * cp * sr - sy * sp * cr;
+  q_out[2] = sy * cp * sr + cy * sp * cr;
+  q_out[3] = sy * cp * cr - cy * sp * sr;
+
+}
+
+
+void AHRS::quat_normalize(float q_in[4], float q_out[4])
+{
+  float quat_norm = sqrt(q_in[0] * q_in[0] + q_in[1] * q_in[1] + q_in[2] * q_in[2] + q_in[3] * q_in[3]);
+  q_out[0] = q_in[0] / norm;
+  q_out[1] = q_in[1] / norm;
+  q_out[2] = q_in[2] / norm;
+  q_out[3] = q_in[3] / norm;
+}
+
+//Function to multiply two quaternions
+void AHRS::quat_multiply(float qa[4], float qb[4], float q_out[4]) {
+
+  q_out[0] = qa[0]*qb[0] - qa[1]*qb[1] -qa[2]*qb[2] -qa[3]*qb[3];
+  q_out[1] = qa[0]*qb[1] + qa[1]*qb[0] +qa[2]*qb[3] -qa[3]*qb[2];
+  q_out[2] = qa[0]*qb[2] - qa[1]*qb[3] +qa[2]*qb[0] +qa[3]*qb[1];
+  q_out[3] = qa[0]*qb[3] + qa[1]*qb[2] -qa[2]*qb[1] +qa[3]*qb[0];
+
+  quat_normalize(q_out,q_out);
+
+}
+
+
+//Function to perform a quaternion transformation to a vector
+void AHRS::quat_vec_transform(float q_in[4], float v_in[3], float v_out[3]) {
+
+  //quat_vec_transform(q_wb, v_b, v_w) == v_w <- R_bw*v_b
+
+  float v_aux[4] = {0, v_in[0], v_in[1], v_in[2]};
+  float q_star[4] = {q_in[0], -q_in[1], -q_in[2], -q_in[3]};
+
+  quat_multiply(q_star,v_aux,v_aux);
+  quat_multiply(v_aux,q_in,v_aux);
+  
+  v_out[0] = v_aux[1];
+  v_out[1] = v_aux[2];
+  v_out[2] = v_aux[3];
+
+}
+
+
+
+
+//------------------------------------------------
+
+//------------------------------------------------
+
+
 void AHRS::compute(float attitude[3], float rate[3], float attitudeRadian[3], float rateRadian[3] ) {
   timenow = millis();
   dt = (float)(timenow - timeprev) / 978.;
@@ -121,11 +448,13 @@ void AHRS::compute(float attitude[3], float rate[3], float attitudeRadian[3], fl
     // Get Raw Data From IMU
     I2Cread(MPU9250_ADDRESS, 0x3B, 14, Buf);
     
+
     // Accelerometer
     accel[0] = (Buf[0] << 8 | Buf[1]);
     accel[1] = (Buf[2] << 8 | Buf[3]);
-    accel[2] = Buf[4] << 8 | Buf[5];
+    accel[2] = (Buf[4] << 8 | Buf[5]);
 
+    
     // Gyroscope
     gyro_int[0] = (Buf[8] << 8 | Buf[9]) - MEAN_GYRO[0];
     gyro_int[1] = (Buf[10] << 8 | Buf[11]) - MEAN_GYRO[1];
@@ -135,6 +464,11 @@ void AHRS::compute(float attitude[3], float rate[3], float attitudeRadian[3], fl
       // Get Gyro
       gyro[i] = (gyro_int[i] / GYRO_LSB) * DEG2RAD;
     }
+
+
+
+    
+    
 
     // Normalize Accelerometer
     normalize(accel_angle, accel);

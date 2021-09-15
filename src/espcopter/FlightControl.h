@@ -8,6 +8,14 @@ boolean ledState =   HIGH;
 float factor;
 float factor_;
 
+void FlightControl_new() {
+  if ((millis() - ts) > 2) { //Update only once per 2ms (500hz update rate)
+    ts = millis();
+
+    ahrs.EKF_prediction();
+  }
+}
+
 int stopFlightHand = 0;
 void FlightControl() {
 

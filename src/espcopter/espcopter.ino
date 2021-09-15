@@ -22,19 +22,39 @@
 #include <mavros_msgs/BatteryStatus.h>
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/MagneticField.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <nav_msgs/Odometry.h>
 #include <std_srvs/Trigger.h>
 #include <ESP8266WiFi.h>
 #include "espcopter.h"
 /*********************************************************/
 
 
+/*********************************************************
+   COMPILATION OPTIONS
+*********************************************************/
+#define ros_flag_attitude 1                 //subscribe to thrust/attitude commands (OLD)
+//#define ros_flag_attitude_status 1        //publish drone's attitude
+#define ros_flag_battery 1                //publish battery status
+//#define ros_flag_command_status 1         //publish command status???
+#define ros_flag_imu 1                      //publish IMU data
+//#define ros_flag_led 1                    //subscribe to RGB LED commands
+//#define ros_flag_mag 1                    //publish magnetometer data
+#define ros_flag_motors 1                   //subscribe to mottors commands
+
+#define ros_flag_mocap 1                    //subscribe to mocap data
+#define ros_flag_filter 1                   //publish filter data
+/*********************************************************/
+
 
 /*********************************************************
    WIFI SETUP
 *********************************************************/
-IPAddress ROS_MASTER_ADDRESS(10, 42, 0, 1); // ros master ip
-char* WIFI_SSID = "hero_network"; // network name
-char* WIFI_PASSWD = "s3cr3tp4ss"; // network password
+IPAddress ROS_MASTER_ADDRESS(192, 168, 2, 6); // ros master ip
+//char* WIFI_SSID = "hero_network"; // network name
+//char* WIFI_PASSWD = "s3cr3tp4ss"; // network password
+char* WIFI_SSID = "corowap2G"; // network name
+char* WIFI_PASSWD = "corowap2G"; // network password
 /*********************************************************/
 
 
@@ -46,52 +66,86 @@ String drone_name;
 /* ROS Node Instaciatation */
 ros::NodeHandle nh;
 
+#ifdef ros_flag_led
 /* LED callback */
 void led_callback(const std_msgs::ColorRGBA& msg);
 String led_topic;
 ros::Subscriber<std_msgs::ColorRGBA> *led_sub;
+#endif
 
-/* Motor callback */
 bool enable_motors_only = false;
 int16_t pwmMotorFL_, pwmMotorFR_, pwmMotorRL_, pwmMotorRR_;
+#ifdef ros_flag_motors
+/* Motor callback */
 void motors_callback(const mavros_msgs::RCOut& msg);
 String motors_topic;
 ros::Subscriber<mavros_msgs::RCOut> *motors_sub;
+#endif
 
+#ifdef ros_flag_attitude
 /* Attitude callback */
 void attitude_callback(const mavros_msgs::AttitudeTarget& msg);
 String attitude_topic;
 ros::Subscriber<mavros_msgs::AttitudeTarget> *attitude_sub;
+#endif
 
+#ifdef ros_flag_mocap
+/* Mocap pose callback*/
+void mocap_callback(const geometry_msgs::PoseStamped& msg);
+String mocap_topic;                 /* Topic name */
+ros::Subscriber<geometry_msgs::PoseStamped> *mocap_sub;
+#endif
+
+#ifdef ros_flag_battery
 /* Battery Status */
 mavros_msgs::BatteryStatus battery_msg;     /* Message Type */
 String battery_topic;                 /* Topic name */
 ros::Publisher *battery_pub;          /* Publisher */
 void update_battery(void);            /* Update Loop */
+#endif
 
+#ifdef ros_flag_imu
 /* IMU Status */
 sensor_msgs::Imu imu_msg;     /* Message Type */
 String imu_topic;                 /* Topic name */
 ros::Publisher *imu_pub;          /* Publisher */
 void update_imu(void);            /* Update Loop */
+#endif
 
+#ifdef ros_flag_mag
 /* Magnetometer Status */
 sensor_msgs::MagneticField mag_msg;     /* Message Type */
 String mag_topic;                 /* Topic name */
 ros::Publisher *mag_pub;          /* Publisher */
 void update_mag(void);            /* Update Loop */
+#endif
 
+#ifdef ros_flag_command_status
 /* Command Status */
 mavros_msgs::AttitudeTarget command_msg;     /* Message Type */
 String command_status_topic;                 /* Topic name */
 ros::Publisher *command_pub;          /* Publisher */
 void update_command(void);            /* Update Loop */
+#endif
 
+#ifdef ros_flag_attitude_status
 /* Attitude Status */
 mavros_msgs::AttitudeTarget attitude_msg;     /* Message Type */
 String attitude_status_topic;                 /* Topic name */
 ros::Publisher *attitude_pub;          /* Publisher */
 void update_attitude(void);            /* Update Loop */
+#endif
+
+
+#ifdef ros_flag_filter
+/* Publish filter states */
+nav_msgs::Odometry filter_msg;     /* Message Type */
+String filter_topic;                 /* Topic name */
+ros::Publisher *filter_pub;          /* Publisher */
+void update_filter(void);            /* Update Loop */
+#endif
+
+
 
 /* Arm motors service */
 ros::ServiceServer<std_srvs::Trigger::Request, std_srvs::Trigger::Response> *arm_motors_srv;
@@ -119,7 +173,7 @@ void mag_calibration_update();
 char mbuf [200]; /* ROS Debug messages */
 
 /* Timer */
-double timer_ros, log_timer_ros, rate_ros = 50, timer_freq = 0, last_loop_freq = 0, loop_freq = 0, control_loop = 0;
+double timer_ros, log_timer_ros, dt_ros = 20, timer_freq = 0, last_loop_freq = 0, loop_freq = 0, control_loop = 0;
 
 /*********************************************************
    ARDUINO SETUP FUNCTION
@@ -139,34 +193,63 @@ void setup() {
   /* Setup laser publisher */
   drone_name = String("/drone_1");
 
+#ifdef ros_flag_led
   led_topic = drone_name + String("/led");
   led_sub = new ros::Subscriber<std_msgs::ColorRGBA>(led_topic.c_str(), led_callback);
+#endif
 
+#ifdef ros_flag_motors
   motors_topic = drone_name + String("/motors");
   motors_sub = new ros::Subscriber<mavros_msgs::RCOut>(motors_topic.c_str(), motors_callback);
+#endif
 
+#ifdef ros_flag_attitude
   attitude_topic = drone_name + String("/attitude");
   attitude_sub = new ros::Subscriber<mavros_msgs::AttitudeTarget>(attitude_topic.c_str(), attitude_callback);
+#endif
 
+#ifdef ros_flag_mocap
+  mocap_topic =  String("/mocap_node") + drone_name + String("/pose");
+  mocap_sub = new ros::Subscriber<geometry_msgs::PoseStamped>(mocap_topic.c_str(), mocap_callback);
+#endif
+
+#ifdef ros_flag_battery
   battery_topic = drone_name + String("/battery");                         /* Update topic name */
   battery_pub = new ros::Publisher(battery_topic.c_str(), &battery_msg);    /* Instantiate publisher */
   nh.advertise(*battery_pub);
+#endif
 
+#ifdef ros_flag_imu
   imu_topic = drone_name + String("/imu");                         /* Update topic name */
   imu_pub = new ros::Publisher(imu_topic.c_str(), &imu_msg);    /* Instantiate publisher */
   nh.advertise(*imu_pub);
+#endif
 
+#ifdef ros_flag_mag
   mag_topic = drone_name + String("/mag");                         /* Update topic name */
   mag_pub = new ros::Publisher(mag_topic.c_str(), &mag_msg);    /* Instantiate publisher */
   nh.advertise(*mag_pub);
+#endif
 
+#ifdef ros_flag_attitude_status
   attitude_status_topic = drone_name + String("/attitude_status");                         /* Update topic name */
   attitude_pub = new ros::Publisher(attitude_status_topic.c_str(), &attitude_msg);    /* Instantiate publisher */
   nh.advertise(*attitude_pub);
+#endif
 
+#ifdef ros_flag_command_status
   command_status_topic = drone_name + String("/command_status");                         /* Update topic name */
   command_pub = new ros::Publisher(command_status_topic.c_str(), &command_msg);    /* Instantiate publisher */
   nh.advertise(*command_pub);
+#endif
+
+#ifdef ros_flag_filter
+  filter_topic = drone_name + String("/filter");                         /* Update topic name */
+  filter_pub = new ros::Publisher(filter_topic.c_str(), &filter_msg);    /* Instantiate publisher */
+  filter_msg.header.frame_id = (drone_name + String("/base_link")).c_str(); /* Set frames only once */
+  filter_msg.child_frame_id = String("world").c_str(); /* Set frames only once */
+  nh.advertise(*filter_pub);
+#endif
 
   arm_motors_topic = drone_name + String("/arm_motors");
   arm_motors_srv = new ros::ServiceServer<std_srvs::Trigger::Request, std_srvs::Trigger::Response>(arm_motors_topic.c_str(), &arm_motors_callback);
@@ -184,9 +267,19 @@ void setup() {
   nh.initNode();
 
   /* Address Subscribers */
+#ifdef ros_flag_led
   nh.subscribe(*led_sub);
+#endif
+#ifdef ros_flag_motors
   nh.subscribe(*motors_sub);
+#endif
+#ifdef ros_flag_attitude
   nh.subscribe(*attitude_sub);
+#endif
+#ifdef ros_flag_mocap
+  nh.subscribe(*mocap_sub);
+#endif
+
 
   /* ROS LOG */
   sprintf(mbuf, "\33[96m[%s] R E A D Y !\33[0m", drone_name.c_str());
@@ -233,17 +326,46 @@ void loop() {
   }
 
   /* ROS Loop */
-  if (millis() - timer_ros > rate_ros) {
+  if (micros() - timer_ros >= dt_ros*1000) {
+    timer_ros = micros();
+
+#ifdef ros_flag_battery
     update_battery();
+#endif
+#ifdef ros_flag_imu
     update_imu();
+#endif
+#ifdef ros_flag_mag
     update_mag();
+#endif
+#ifdef ros_flag_attitude_status
     update_attitude();
+#endif
+#ifdef ros_flag_command_status
     update_command();
+#endif
+#ifdef ros_flag_filter
+    update_filter();
+#endif
     gyro_calibration_update();
     mag_calibration_update();
-    timer_ros = millis();
-    nh.spinOnce();
+
+
+//float st_tmp[9];
+//ahrs.EKF_getStates(st_tmp);
+//EKF_states
+//sprintf(mbuf, "\33[96mpos: %d, %d, %d\nvel: %.2f, %.2f, %.2f\nang: %.2f, %.2f, %.2f\n\33[0m", st_tmp[0],st_tmp[1],st_tmp[2], st_tmp[3],st_tmp[4],st_tmp[5], st_tmp[6],st_tmp[7],st_tmp[8]);
+//nh.loginfo(mbuf);
+
+//Print ekf data
+//sprintf(mbuf, "\33[96mpos: %.3f, %.3f, %.3f\nvel: %.3f, %.3f, %.3f\nang: %.3f, %.3f, %.3f\n\33[0m", ahrs.EKF_states[0],ahrs.EKF_states[1],ahrs.EKF_states[2], ahrs.EKF_states[3],ahrs.EKF_states[4],ahrs.EKF_states[5], ahrs.EKF_states[6],ahrs.EKF_states[7],ahrs.EKF_states[8]);
+//nh.loginfo(mbuf);
+
+
+
+    nh.spinOnce(); //[TODO] Call this more frequently?
   }
+  
   if (enable_motors_only) {
     pwm_set_duty((pwmMotorFL_), 0);
     pwm_set_duty((pwmMotorFR_), 3);
@@ -252,7 +374,8 @@ void loop() {
     pwm_start();
   } else {
     if (!gyro_calibration_status && !mag_calibration_status) {
-      FlightControl();
+//      FlightControl();
+      FlightControl_new();
     }
   }
 
@@ -272,9 +395,9 @@ void loop() {
    LED CALLBACK FUNCTION
 *********************************************************/
 void led_callback(const std_msgs::ColorRGBA& msg) {
-  analogWrite(redLed, (int)msg.r);
-  analogWrite(greenLed, (int)msg.g);
-  analogWrite(blueLed, (int)msg.b);
+  analogWrite(redLed, (1.0-msg.r)*1024);
+  analogWrite(greenLed, (1.0-msg.g)*1024);
+  analogWrite(blueLed, (msg.b)*1024);
   sprintf(mbuf, "\33[96m[%s] Turning the leds on RGB(%d, %d, %d)...\33[0m", drone_name.c_str(), (int)msg.r, (int)msg.g, (int)msg.b);
   nh.loginfo(mbuf);
 }
@@ -309,7 +432,7 @@ void arm_motors_callback(const std_srvs::Trigger::Request& req, std_srvs::Trigge
 /*********************************************************/
 
 
-
+#ifdef ros_flag_motors
 /*********************************************************
    RC MOTORS CALLBACK
 *********************************************************/
@@ -335,9 +458,11 @@ void motors_callback(const mavros_msgs::RCOut& msg) {
   enable_motors_only = true;
 }
 /*********************************************************/
+#endif
 
 
 
+#ifdef ros_flag_attitude
 /*********************************************************
    ATTITUDE CONTROL CALLBACK
 *********************************************************/
@@ -359,10 +484,71 @@ void attitude_callback(const mavros_msgs::AttitudeTarget& msg) {
   SetPoint[2] = map((int)msg.body_rate.z, -100, 100, -YAW_LIMIT, YAW_LIMIT);
 }
 /*********************************************************/
+#endif
+
+
+#ifdef ros_flag_mocap
+/*********************************************************
+   MOCAP CALLBACK
+*********************************************************/
+
+int mocap_count = 0;
+int mocap_last_time = 0;
+void mocap_callback(const geometry_msgs::PoseStamped& msg) {
+  
+
+//  sprintf(mbuf, "\33[93m[%s] Got pos: %.3f, %.3f, %.3f\33[0m", drone_name.c_str(), msg.pose.position.x, msg.pose.position.y, msg.pose.position.z);
+//  nh.loginfo(mbuf);
+//  sprintf(mbuf, "\33[93m[%s] Got quat: %.3f, %.3f, %.3f, %.3f\33[0m\n", drone_name.c_str(), msg.pose.orientation.w, msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z);
+//  nh.loginfo(mbuf);
+
+  //Call EKF update
+  float p[3] = {msg.pose.position.x, msg.pose.position.y, msg.pose.position.z};
+  float q[4] = {msg.pose.orientation.w, msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z};
+  ahrs.EKF_update(p,q);
+
+
+//  //Position
+//  filter_msg.pose.pose.position.x = msg.pose.position.x;
+//  filter_msg.pose.pose.position.y = msg.pose.position.y;
+//  filter_msg.pose.pose.position.z = msg.pose.position.z;
+//
+//  //Orientation
+//  filter_msg.pose.pose.orientation.w = msg.pose.orientation.w;
+//  filter_msg.pose.pose.orientation.x = msg.pose.orientation.x;
+//  filter_msg.pose.pose.orientation.y = msg.pose.orientation.y;
+//  filter_msg.pose.pose.orientation.z = msg.pose.orientation.z;
+//
+//  //Angular velocities
+//  filter_msg.twist.twist.angular.x = ahrs.gyro[0];
+//  filter_msg.twist.twist.angular.y = ahrs.gyro[1];
+//  filter_msg.twist.twist.angular.z = ahrs.gyro[2];
+//
+//  filter_msg.header.frame_id = "/world"; /* Set frames only once */
+//  filter_msg.child_frame_id = "/base_link";
+//  
+//  filter_msg.header.stamp = nh.now();
+//  filter_pub->publish(& filter_msg);
+
+  
+
+//  mocap_count++;
+//  if (millis()-mocap_last_time >= 1000){
+//    double mocap_freq;
+//
+//    mocap_freq = 1000*mocap_count/float(millis()-mocap_last_time);
+//    mocap_last_time = millis();
+//    mocap_count = 0;
+//    sprintf(mbuf, "\33[46m[%s] Mocap freq: %.4f\33[0m", drone_name.c_str(), mocap_freq);
+//    nh.loginfo(mbuf);
+//  }
+}
+/*********************************************************/
+#endif
 
 
 
-
+#ifdef ros_flag_command_status
 /*********************************************************
    COMMAND STATUS PUBLISHER
 *********************************************************/
@@ -375,11 +561,11 @@ void update_command(void) {
   command_pub->publish(& command_msg);
 }
 /*********************************************************/
+#endif
 
 
 
-
-
+#ifdef ros_flag_mag
 /*********************************************************
    MAG STATUS PUBLISHER
 *********************************************************/
@@ -392,10 +578,11 @@ void update_mag(void) {
   mag_pub->publish(& mag_msg);
 }
 /*********************************************************/
+#endif
 
 
 
-
+#ifdef ros_flag_imu
 /*********************************************************
    IMU STATUS PUBLISHER
 *********************************************************/
@@ -404,18 +591,27 @@ void update_imu(void) {
   imu_msg.angular_velocity.y = ahrs.gyro[1];
   imu_msg.angular_velocity.z = ahrs.gyro[2];
 
-  imu_msg.linear_acceleration.x = ahrs.accel_angle[0];
-  imu_msg.linear_acceleration.y = ahrs.accel_angle[1];
-  imu_msg.linear_acceleration.z = ahrs.accel_angle[2];
+//  imu_msg.linear_acceleration.x = ahrs.accel_angle[0];
+//  imu_msg.linear_acceleration.y = ahrs.accel_angle[1];
+//  imu_msg.linear_acceleration.z = ahrs.accel_angle[2];
+  imu_msg.linear_acceleration.x = ahrs.accel_si[0]; //[Adriano]
+  imu_msg.linear_acceleration.y = ahrs.accel_si[1]; //[Adriano]
+  imu_msg.linear_acceleration.z = ahrs.accel_si[2]; //[Adriano]
+
+imu_msg.orientation.w = ahrs.EKF_states[6]; //[Adriano]
+imu_msg.orientation.x = ahrs.EKF_states[7]; //[Adriano]
+imu_msg.orientation.y = ahrs.EKF_states[8]; //[Adriano]
+imu_msg.orientation.z = ahrs.EKF_states[9]; //[Adriano]
   
   imu_msg.header.stamp = nh.now();
   imu_pub->publish(& imu_msg);
 }
 /*********************************************************/
+#endif
 
 
 
-
+#ifdef ros_flag_attitude_status
 /*********************************************************
    ATTITUDE STATUS PUBLISHER
 *********************************************************/
@@ -433,10 +629,10 @@ void update_attitude(void) {
 
 }
 /*********************************************************/
+#endif
 
 
-
-
+#ifdef ros_flag_battery
 /*********************************************************
    BATTERY STATUS PUBLISHER
 *********************************************************/
@@ -447,7 +643,51 @@ void update_battery(void) {
   battery_pub->publish( &battery_msg );
 }
 /*********************************************************/
+#endif
 
+#ifdef ros_flag_filter
+/*********************************************************
+   FILTER STATUS PUBLISHER
+*********************************************************/
+void update_filter(void) {
+//  filter_msg.magnetic_field.x = ahrs.mag[0];
+//  filter_msg.magnetic_field.y = ahrs.mag[1];
+//  filter_msg.magnetic_field.z = ahrs.mag[2];
+
+  //Position
+  filter_msg.pose.pose.position.x = ahrs.EKF_states[0];
+  filter_msg.pose.pose.position.y = ahrs.EKF_states[1];
+  filter_msg.pose.pose.position.z = ahrs.EKF_states[2];
+
+  //Orientation
+  filter_msg.pose.pose.orientation.w = ahrs.EKF_states[6];
+  filter_msg.pose.pose.orientation.x = ahrs.EKF_states[7];
+  filter_msg.pose.pose.orientation.y = ahrs.EKF_states[8];
+  filter_msg.pose.pose.orientation.z = ahrs.EKF_states[9];
+
+  //Linear velocities
+  filter_msg.twist.twist.linear.x = ahrs.EKF_states[3];
+  filter_msg.twist.twist.linear.y = ahrs.EKF_states[4];
+  filter_msg.twist.twist.linear.z = ahrs.EKF_states[5];
+
+  //Angular velocities
+  filter_msg.twist.twist.angular.x = ahrs.gyro[0];
+  filter_msg.twist.twist.angular.y = ahrs.gyro[1];
+  filter_msg.twist.twist.angular.z = ahrs.gyro[2];
+
+//  filter_msg.header.frame_id = (drone_name + String("/base_link")).c_str(); /* Set frames only once */
+//  filter_msg.child_frame_id = (String("/world")).c_str(); /* Set frames only once */
+//  filter_msg.header.frame_id = "/base_link"; /* Set frames only once */
+//  filter_msg.child_frame_id = "/world";
+
+  filter_msg.header.frame_id = "/world"; /* Set frames only once */
+  filter_msg.child_frame_id = "/base_link";
+  
+  filter_msg.header.stamp = nh.now();
+  filter_pub->publish(& filter_msg);
+}
+/*********************************************************/
+#endif
 
 
 
@@ -741,4 +981,3 @@ void mag_calibration_update() {
 /*********************************************************
    E N D
 *********************************************************/
-
