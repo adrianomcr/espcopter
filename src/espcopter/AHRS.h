@@ -18,9 +18,13 @@ class AHRS {
     void EKF_getStates(float states[9]); //[Adriano]
     void quat2eul(float q_in[4], float ang_out[3]); //[Adriano]
     void eul2quat(float ang_in[3], float quat_out[4]); //[Adriano]
+    void acrorate_control(float tau_ref, float omega_ref[3], float u_out[4]); //[Adriano]
     void quat_normalize(float q_in[4], float q_out[4]);
     void quat_multiply(float qa[4], float qb[4], float q_out[4]); //[Adriano]
     void quat_vec_transform(float q_in[4], float v_in[3], float v_out[3]); //[Adriano]
+    void cross(float qa[3], float qb[3], float qc[3]); //[Adriano]
+//    void set_motors(float u[4]); //Adriano
+    void IMU_update(); //Adriano
     
     void normalize(float output[3], int16_t input[3]);
     void setZero();
@@ -70,14 +74,32 @@ class AHRS {
 
     //float EKF_states[15] = {0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0}; //[x,y,z, vx,vy,vz, phi,theta,psi, bax,bay,baz, bgx,bgy,bgz]
     float EKF_states[16] = {0,0,0, 0,0,0, 0,0,0,0, 0,0,0, 0,0,0}; //[x,y,z, vx,vy,vz, qw,qx,qy,qz, bax,bay,baz, bgx,bgy,bgz]
+    float u_motors[4] = {0, 0, 0, 0}; //Adriano
+    float acrorateref[4] = {0, 0, 0, 0}; //Adriano
+    float Kpwx = 10;
+    float Kpwy = 10;
+    float Kpwz = 15; //good
+    float Kiwx = 0.07;
+    float Kiwy = 0.07;
+    float Kiwz = 0.05; //good
+
+    float Kdwx = 0.9;
+    float Kdwy = 0.9;
+    float Kdwz = 0.5;
+
+    float EKF_gyro[3] = {0,0,0}; //gyro filtered?
+    float EKF_acc[3] = {0,0,0}; //gyro filtered?
+    float int_err_omega[3] = {0, 0, 0}; //Adriano
+    float last_err_omega[3] = {0, 0, 0}; //Adriano
+
 
   private:
 
     //[Adriano]
 //    //float EKF_states[15] = {0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0}; //[x,y,z, vx,vy,vz, phi,theta,psi, bax,bay,baz, bgx,bgy,bgz]
 //    float EKF_states[16] = {0,0,0, 0,0,0, 0,0,0,0, 0,0,0, 0,0,0}; //[x,y,z, vx,vy,vz, qw,qx,qy,qz, bax,bay,baz, bgx,bgy,bgz]
-    float EKF_gyro[3] = {0,0,0}; //gyro filtered?
-    float EKF_acc[3] = {0,0,0}; //gyro filtered?
+
+    
 
     int16_t Filter_P[3] = {0}, Filter_I[3] = {0}, Filter_SUM[3] = {0}, delta = 0, _angle[3] = {0};
     float _rate[3] = {0}, test = 0, rate[3] = {0};

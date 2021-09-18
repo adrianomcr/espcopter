@@ -33,17 +33,19 @@
 /*********************************************************
    COMPILATION OPTIONS
 *********************************************************/
-#define ros_flag_attitude 1                 //subscribe to thrust/attitude commands (OLD)
+//#define ros_flag_attitude 1                 //subscribe to thrust/attitude commands (OLD)
 //#define ros_flag_attitude_status 1        //publish drone's attitude
-#define ros_flag_battery 1                //publish battery status
+//#define ros_flag_battery 1                //publish battery status
 //#define ros_flag_command_status 1         //publish command status???
 #define ros_flag_imu 1                      //publish IMU data
 //#define ros_flag_led 1                    //subscribe to RGB LED commands
 //#define ros_flag_mag 1                    //publish magnetometer data
-#define ros_flag_motors 1                   //subscribe to mottors commands
+//#define ros_flag_motors 1                   //subscribe to mottors commands
 
 #define ros_flag_mocap 1                    //subscribe to mocap data
-#define ros_flag_filter 1                   //publish filter data
+//#define ros_flag_filter 1                   //publish filter data
+#define ros_flag_acrorateref                //subscribe to acrorate refference
+#define ros_flag_setgain                    //subscribe to topic to set the PID gains
 /*********************************************************/
 
 
@@ -94,6 +96,20 @@ ros::Subscriber<mavros_msgs::AttitudeTarget> *attitude_sub;
 void mocap_callback(const geometry_msgs::PoseStamped& msg);
 String mocap_topic;                 /* Topic name */
 ros::Subscriber<geometry_msgs::PoseStamped> *mocap_sub;
+#endif
+
+#ifdef ros_flag_acrorateref
+/* Acrorate reference callback*/
+void acrorateref_callback(const geometry_msgs::Quaternion& msg);
+String acrorateref_topic;                 /* Topic name */
+ros::Subscriber<geometry_msgs::Quaternion> *acrorateref_sub;
+#endif
+
+#ifdef ros_flag_setgain
+/* Acrorate reference callback*/
+void setgain_callback(const geometry_msgs::Quaternion& msg);
+String setgain_topic;                 /* Topic name */
+ros::Subscriber<geometry_msgs::Point> *setgain_sub;
 #endif
 
 #ifdef ros_flag_battery
@@ -213,6 +229,16 @@ void setup() {
   mocap_sub = new ros::Subscriber<geometry_msgs::PoseStamped>(mocap_topic.c_str(), mocap_callback);
 #endif
 
+#ifdef ros_flag_acrorateref
+  acrorateref_topic =  drone_name + String("/acrorate_ref");
+  acrorateref_sub = new ros::Subscriber<geometry_msgs::Quaternion>(acrorateref_topic.c_str(), acrorateref_callback);
+#endif
+
+#ifdef ros_flag_setgain
+  setgain_topic =  drone_name + String("/set_gain");
+  setgain_sub = new ros::Subscriber<geometry_msgs::Point>(setgain_topic.c_str(), setgain_callback);
+#endif
+
 #ifdef ros_flag_battery
   battery_topic = drone_name + String("/battery");                         /* Update topic name */
   battery_pub = new ros::Publisher(battery_topic.c_str(), &battery_msg);    /* Instantiate publisher */
@@ -279,6 +305,12 @@ void setup() {
 #ifdef ros_flag_mocap
   nh.subscribe(*mocap_sub);
 #endif
+#ifdef ros_flag_acrorateref
+  nh.subscribe(*acrorateref_sub);
+#endif
+#ifdef ros_flag_setgain
+  nh.subscribe(*setgain_sub);
+#endif
 
 
   /* ROS LOG */
@@ -317,7 +349,7 @@ void loop() {
   /* ROS INFOS */
   if ((millis() - log_timer_ros) > 5000 && !gyro_calibration_status && !mag_calibration_status) {
     log_timer_ros = millis();
-    sprintf(mbuf, "\33[96m[%s] Conected at time: %d, loop_freq: %f, battery: %f\33[0m", drone_name.c_str(), millis(), last_loop_freq, (float)analogRead(A0) * 5.5);
+    sprintf(mbuf, "\33[96m[%s] Connected at time: %d, loop_freq: %f, battery: %f\33[0m", drone_name.c_str(), millis(), last_loop_freq, (float)analogRead(A0) * 5.5);
     nh.loginfo(mbuf);
     //sprintf(mbuf, "\33[96m[%s] Roll: %f, Pitch: %f, Yaw: %f\33[0m", drone_name.c_str(), roll.output, pitch.output, yaw.output);
     //nh.loginfo(mbuf);
@@ -328,6 +360,9 @@ void loop() {
   /* ROS Loop */
   if (micros() - timer_ros >= dt_ros*1000) {
     timer_ros = micros();
+
+//    sprintf(mbuf, "\33[96m[%s] u_motors: %f, %f, %f, %f\33[0m", drone_name.c_str(), ahrs.u_motors[0], ahrs.u_motors[1], ahrs.u_motors[2], ahrs.u_motors[3]);
+//    nh.loginfo(mbuf);
 
 #ifdef ros_flag_battery
     update_battery();
@@ -365,6 +400,9 @@ void loop() {
 
     nh.spinOnce(); //[TODO] Call this more frequently?
   }
+
+
+
   
   if (enable_motors_only) {
     pwm_set_duty((pwmMotorFL_), 0);
@@ -375,7 +413,16 @@ void loop() {
   } else {
     if (!gyro_calibration_status && !mag_calibration_status) {
 //      FlightControl();
-      FlightControl_new();
+      if(armControl){
+        FlightControl_new();
+      }
+      else{
+        pwm_set_duty((0), 0);
+        pwm_set_duty((0), 3);
+        pwm_set_duty((0), 2);
+        pwm_set_duty((0), 1);
+        pwm_start();
+      }
     }
   }
 
@@ -410,6 +457,12 @@ void led_callback(const std_msgs::ColorRGBA& msg) {
 *********************************************************/
 void arm_motors_callback(const std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
   armControl = !armControl;
+  //Reset the integrator
+  if (!armControl){
+    ahrs.int_err_omega[0] = 0;
+    ahrs.int_err_omega[1] = 0;
+    ahrs.int_err_omega[2] = 0;
+  }
   analogWriteFreq(20000);
   if (armControl == 1) {
     sprintf(mbuf, "\33[91m[%s] Be careful! Motors are enabled!\33[0m", drone_name.c_str());
@@ -542,6 +595,53 @@ void mocap_callback(const geometry_msgs::PoseStamped& msg) {
 //    sprintf(mbuf, "\33[46m[%s] Mocap freq: %.4f\33[0m", drone_name.c_str(), mocap_freq);
 //    nh.loginfo(mbuf);
 //  }
+}
+/*********************************************************/
+#endif
+
+
+
+
+
+#ifdef ros_flag_acrorateref
+/*********************************************************
+   ACRORATE REF CALLBACK
+*********************************************************/
+void acrorateref_callback(const geometry_msgs::Quaternion& msg) {
+
+  ahrs.acrorateref[0] = msg.w;
+  ahrs.acrorateref[1] = msg.x;
+  ahrs.acrorateref[2] = msg.y;
+  ahrs.acrorateref[3] = msg.z;
+}
+/*********************************************************/
+#endif
+
+#ifdef ros_flag_setgain
+/*********************************************************
+   ACRORATE REF CALLBACK
+*********************************************************/
+void setgain_callback(const geometry_msgs::Point& msg) {
+
+  
+
+//  ahrs.Kpwx = msg.x;
+//  ahrs.Kpwy = msg.y;
+//  ahrs.Kpwz = msg.z;
+//  sprintf(mbuf, "\33[93m[%s] Proportional gain set to: %.3f, %.3f, %.3f\33[0m\n", drone_name.c_str(), msg.x, msg.y, msg.z);
+//  nh.loginfo(mbuf);
+
+  ahrs.Kiwx = msg.x;
+  ahrs.Kiwy = msg.y;
+  ahrs.Kiwz = msg.z;
+  sprintf(mbuf, "\33[93m[%s] Integral gain set to: %.3f, %.3f, %.3f\33[0m\n", drone_name.c_str(), msg.x, msg.y, msg.z);
+  nh.loginfo(mbuf);
+
+//  ahrs.Kdwx = msg.x;
+//  ahrs.Kdwy = msg.y;
+//  ahrs.Kdwz = msg.z;
+//  sprintf(mbuf, "\33[93m[%s] Derivative gain set to: %.3f, %.3f, %.3f\33[0m\n", drone_name.c_str(), msg.x, msg.y, msg.z);
+//  nh.loginfo(mbuf);
 }
 /*********************************************************/
 #endif

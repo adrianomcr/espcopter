@@ -123,17 +123,10 @@ void AHRS::EKF_getStates(float states[9]) {
 }
 
 
+
 //[Adriano]
-void AHRS::EKF_prediction() {
-  
-  int a = 1;
+void AHRS::IMU_update() {
 
-  timenow = millis();
-  dt = (float)(timenow - timeprev) / 978.;
-  timeprev = timenow;
-
-  if (dt > -1) {
-    
     // Get Raw Data From IMU
     I2Cread(MPU9250_ADDRESS, 0x3B, 14, Buf);
     
@@ -151,9 +144,47 @@ void AHRS::EKF_prediction() {
     gyro_int[1] = (Buf[10] << 8 | Buf[11]) - MEAN_GYRO[1];
     gyro_int[2] = Buf[12] << 8 | Buf[13] - MEAN_GYRO[2];
     //Convert to rad/s and correct the frame (x forward and z up)
-    gyro[0] = (gyro_int[1] / GYRO_LSB) * DEG2RAD;
-    gyro[1] = -(gyro_int[0] / GYRO_LSB) * DEG2RAD;
-    gyro[2] = (gyro_int[2] / GYRO_LSB) * DEG2RAD;
+    float alpha_gyro = 0.25;
+    gyro[0] = (1-alpha_gyro)*gyro[0] + alpha_gyro*(gyro_int[1] / GYRO_LSB) * DEG2RAD;
+    gyro[1] = (1-alpha_gyro)*gyro[1] + -alpha_gyro*(gyro_int[0] / GYRO_LSB) * DEG2RAD;
+    gyro[2] = (1-alpha_gyro)*gyro[2] + alpha_gyro*(gyro_int[2] / GYRO_LSB) * DEG2RAD;
+
+
+}
+
+
+
+
+//[Adriano]
+void AHRS::EKF_prediction() {
+
+  timenow = millis();
+  dt = (float)(timenow - timeprev) / 978.;
+  timeprev = timenow;
+
+  if (dt > -1) {
+    
+//    // Get Raw Data From IMU
+//    I2Cread(MPU9250_ADDRESS, 0x3B, 14, Buf);
+//    
+//      // Accelerometer
+//    accel[0] = (Buf[0] << 8 | Buf[1]);
+//    accel[1] = (Buf[2] << 8 | Buf[3]);
+//    accel[2] = Buf[4] << 8 | Buf[5];
+//    //Convert to m/s2 and correct the frame (x forward and z up)
+//    accel_si[0] = (accel[1] / 1685.0); //fine tunning
+//    accel_si[1] = -(accel[0] / 1640.3); //fine tunning
+//    accel_si[2] = (accel[2] / 1461.4); //fine tunning
+//    
+//    // Gyroscope
+//    gyro_int[0] = (Buf[8] << 8 | Buf[9]) - MEAN_GYRO[0];
+//    gyro_int[1] = (Buf[10] << 8 | Buf[11]) - MEAN_GYRO[1];
+//    gyro_int[2] = Buf[12] << 8 | Buf[13] - MEAN_GYRO[2];
+//    //Convert to rad/s and correct the frame (x forward and z up)
+//    float alpha_gyro = 0.3;
+//    gyro[0] = (1-alpha_gyro)*gyro[0] + alpha_gyro*(gyro_int[1] / GYRO_LSB) * DEG2RAD;
+//    gyro[1] = (1-alpha_gyro)*gyro[1] + -alpha_gyro*(gyro_int[0] / GYRO_LSB) * DEG2RAD;
+//    gyro[2] = (1-alpha_gyro)*gyro[2] + alpha_gyro*(gyro_int[2] / GYRO_LSB) * DEG2RAD;
 
     //filter gyro and acc?
 
@@ -221,14 +252,10 @@ void AHRS::EKF_prediction() {
 //          (cos(theta)*sin(psi)), (sin(phi)*sin(theta)*sin(psi)+cos(phi)*cos(psi)), (cos(phi)*sin(theta)*sin(psi)-sin(phi)*cos(psi)),
 //          (-sin(theta)), (sin(phi)*cos(theta)), (cos(phi)*cos(theta));
 
-
-
     //------------------------------------------------------------------
     //Perform velocity correction with an inderect measurement from IMU?
     //Estimate air resistance model
     //------------------------------------------------------------------
-
-
 
   }
  
@@ -351,6 +378,115 @@ z_vel_b[2] = (cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi))*z_vel_w[0] + (cos(
 }
 
 
+
+//#define Kp_wx 18//30
+//#define Kp_wy 18//30
+//#define Kp_wz 18//30
+//#define Ki_wx 0.05*0//8
+//#define Ki_wy 0.05*0//8
+//#define Ki_wz 0.05*0//8
+#define Jx 0.00003
+#define Jy 0.00003
+#define Jz 0.000045
+
+#define Kp 1.2e-4
+#define d 0.0315 // 63mm/2
+#define Kd 1.0e-6 //torque z
+
+#define umin 100
+#define umax 1000
+void AHRS::acrorate_control(float tau_ref, float omega_ref[3], float u_out[4]){
+
+  
+  float err_omega[3] = {omega_ref[0]-gyro[0], omega_ref[1]-gyro[1], omega_ref[2]-gyro[2]};
+
+
+  float diff_err_omega[3] = {(err_omega[0]-last_err_omega[0])/0.004, (err_omega[1]-last_err_omega[1])/0.004, (err_omega[2]-last_err_omega[2])/0.004};
+  last_err_omega[0] = err_omega[0];
+  last_err_omega[1] = err_omega[1];
+  last_err_omega[2] = err_omega[2];
+
+  if (tau_ref > 0.4){
+    int_err_omega[0] = int_err_omega[0] + err_omega[0]*0.004;
+    int_err_omega[1] = int_err_omega[1] + err_omega[1]*0.004;
+    int_err_omega[2] = int_err_omega[2] + err_omega[2]*0.004;
+  }
+
+
+  float cross_omega[3];
+  float J_omega[3] = {Jx*gyro[0], Jy*gyro[1], Jz*gyro[2]};
+  cross(gyro, J_omega, cross_omega);
+
+
+  float T_desired[3];
+//  T_desired[0] = Jx*(cross_omega[0] + Kp_wx*err_omega[0] + Ki_wx*int_err_omega[0]);
+//  T_desired[1] = Jy*(cross_omega[1] + Kp_wy*err_omega[1] + Ki_wy*int_err_omega[1]);
+//  T_desired[2] = Jy*(cross_omega[2] + Kp_wz*err_omega[2] + Ki_wz*int_err_omega[2]);
+  T_desired[0] = cross_omega[0]*0 + Jx*(Kpwx*err_omega[0] + Kiwx*int_err_omega[0] + Kdwx*diff_err_omega[0]);
+  T_desired[1] = cross_omega[1]*0 + Jy*(Kpwy*err_omega[1] + Kiwy*int_err_omega[1] + Kdwy*diff_err_omega[1]);
+  T_desired[2] = cross_omega[2]*0 + Jz*(Kpwz*err_omega[2] + Kiwz*int_err_omega[2] + Kdwz*diff_err_omega[2]);
+  T_desired[2] = -T_desired[2];
+
+  float u0[4];
+
+  u0[0] = 1/(4*Kp)*tau_ref +(1/(4*Kp*d))*T_desired[0] -(1/(4*Kp*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
+  u0[1] = 1/(4*Kp)*tau_ref -(1/(4*Kp*d))*T_desired[0] -(1/(4*Kp*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
+  u0[2] = 1/(4*Kp)*tau_ref -(1/(4*Kp*d))*T_desired[0] +(1/(4*Kp*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
+  u0[3] = 1/(4*Kp)*tau_ref +(1/(4*Kp*d))*T_desired[0] +(1/(4*Kp*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
+
+  //Map to the motors numbers considered by the espcopter and filter
+  float acrorate_alpha = 0.4;
+  u_motors[0] = (1-acrorate_alpha)*u_motors[0] + (acrorate_alpha)*u0[0];
+  u_motors[1] = (1-acrorate_alpha)*u_motors[1] + (acrorate_alpha)*u0[2];
+  u_motors[2] = (1-acrorate_alpha)*u_motors[2] + (acrorate_alpha)*u0[3];
+  u_motors[3] = (1-acrorate_alpha)*u_motors[3] + (acrorate_alpha)*u0[1];
+
+  //Saturate cmds
+  for (int ii=0; ii<4; ii++){
+    if(u_motors[ii]<umin){
+      u_motors[ii] = umin;
+    }
+    if(u_motors[ii]>umax){
+      u_motors[ii] = umax;
+    }
+  }
+
+  
+  u_out[0] = u_motors[0];
+  u_out[1] = u_motors[1];
+  u_out[2] = u_motors[2];
+  u_out[3] = u_motors[3];
+
+}
+
+
+//void AHRS::set_motors(float u[4]) {
+//  int16_t pwmMotorFL_ = round(map(u[0], 0, 1023, 0, PWM_PERIOD)); //255
+//  int16_t pwmMotorFR_ = round(map(u[3], 0, 1023, 0, PWM_PERIOD));
+//  int16_t pwmMotorRL_ = round(map(u[2], 0, 1023, 0, PWM_PERIOD));
+//  int16_t pwmMotorRR_ = round(map(u[1], 0, 1023, 0, PWM_PERIOD));
+//
+//  pwmMotorFL_ = constrain(pwmMotorFL_, 0, PWM_PERIOD);
+//  pwmMotorFR_ = constrain(pwmMotorFR_, 0, PWM_PERIOD);
+//  pwmMotorRL_ = constrain(pwmMotorRL_, 0, PWM_PERIOD);
+//  pwmMotorRR_ = constrain(pwmMotorRR_, 0, PWM_PERIOD);
+//
+////  pwm_set_duty((pwmMotorFL_), 0);
+////  pwm_set_duty((pwmMotorFR_), 3);
+////  pwm_set_duty((pwmMotorRR_), 2);
+////  pwm_set_duty((pwmMotorRL_), 1);
+//
+//}
+
+//Function to convert a quaternion to euler angles
+void AHRS::cross(float va[3], float vb[3], float vc[3]) {
+
+  vc[0] = va[1]*vb[2] - va[2]*vb[1];
+  vc[1] = va[2]*vb[0] - va[0]*vb[2];
+  vc[2] = va[0]*vb[1] - va[1]*vb[0];
+}
+
+
 //Function to convert a quaternion to euler angles
 void AHRS::quat2eul(float q_in[4], float ang_out[3]) {
 
@@ -381,8 +517,8 @@ void AHRS::eul2quat(float ang_in[3], float q_out[4]) {
   float sy = sin(ang_in[2] * 0.5); //yaw
   float cp = cos(ang_in[1] * 0.5); //pitch
   float sp = sin(ang_in[1] * 0.5); //pitch
-  float cr = cos(ang_in[1] * 0.5); //roll
-  float sr = sin(ang_in[1] * 0.5); //roll
+  float cr = cos(ang_in[0] * 0.5); //roll
+  float sr = sin(ang_in[0] * 0.5); //roll
   
   q_out[0] = cy * cp * cr + sy * sp * sr;
   q_out[1] = cy * cp * sr - sy * sp * cr;

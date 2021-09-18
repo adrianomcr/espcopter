@@ -1,6 +1,7 @@
 #include "Parameter.h"
 
-unsigned long ts = millis();
+unsigned long ts = micros();
+unsigned long ts_imu = micros();
 
 unsigned long tsbat = millis();
 boolean ledState =   HIGH;
@@ -8,11 +9,84 @@ boolean ledState =   HIGH;
 float factor;
 float factor_;
 
+float const_tau_ref;
+float const_omega_ref[3];
+float tau_ref;
+float omega_ref[3];
+
+float err_ang[3] = {0,0,0};
+float last_err_ang[3] = {0,0,0};
+
 void FlightControl_new() {
-  if ((millis() - ts) > 2) { //Update only once per 2ms (500hz update rate)
-    ts = millis();
+
+  if ((micros() - ts_imu) > 1000) { //Update only once per 1ms (1000hz update rate)
+    ts_imu = micros();
+    ahrs.IMU_update();
+  }
+  
+  if ((micros() - ts) > 4000) { //Update only once per 4ms (250hz update rate)
+    ts = micros();
 
     ahrs.EKF_prediction();
+
+//    const_tau_ref = 0.20;
+//    const_omega_ref[0] = 0;
+//    const_omega_ref[1] = 2.0;
+//    const_omega_ref[2] = 0;
+//    float u_pwm[4];
+//    ahrs.acrorate_control(const_tau_ref, const_omega_ref, u_pwm);
+
+
+    float quat[4] = {ahrs.EKF_states[6], ahrs.EKF_states[7], ahrs.EKF_states[8], ahrs.EKF_states[9]};
+    float ang[3];
+    ahrs.quat2eul(quat,ang);
+
+    tau_ref = ahrs.acrorateref[0];
+//    omega_ref[0] = ahrs.acrorateref[1];
+//    omega_ref[1] = ahrs.acrorateref[2];
+//    omega_ref[2] = ahrs.acrorateref[3];
+
+
+err_ang[0] = sin(ahrs.acrorateref[1]/2.0-ang[0]);
+err_ang[1] = sin(ahrs.acrorateref[2]/2.0-ang[1]);
+err_ang[2] = sin(ahrs.acrorateref[3]/2.0-ang[2]);
+
+    omega_ref[0] = 1.0*err_ang[0] + 0.1*(err_ang[0]-last_err_ang[0])/0.004;
+    omega_ref[1] = 1.0*err_ang[1] + 0.1*(err_ang[1]-last_err_ang[1])/0.004;
+    omega_ref[2] = 1.0*err_ang[2] + 0.0*(err_ang[2]-last_err_ang[2])/0.004;
+
+last_err_ang[0] = err_ang[0];
+last_err_ang[1] = err_ang[1];
+last_err_ang[2] = err_ang[2];
+
+//    omega_ref[0] = 1.0*sin(ahrs.acrorateref[1]/2.0-ang[0]);
+//    omega_ref[1] = 1.0*sin(ahrs.acrorateref[2]/2.0-ang[1]);
+//    omega_ref[2] = 1.0*sin((0-ang[2]));
+    float u_pwm[4];
+    ahrs.acrorate_control(tau_ref, omega_ref, u_pwm);
+
+
+//    u_pwm[0] = 00;
+//    u_pwm[1] = 00;
+//    u_pwm[2] = 00;
+//    u_pwm[3] = 00;
+
+    int16_t pwmMotorFL_ = round(map(u_pwm[0], 0, 1023, 0, PWM_PERIOD)); //255
+    int16_t pwmMotorFR_ = round(map(u_pwm[3], 0, 1023, 0, PWM_PERIOD));
+    int16_t pwmMotorRL_ = round(map(u_pwm[2], 0, 1023, 0, PWM_PERIOD));
+    int16_t pwmMotorRR_ = round(map(u_pwm[1], 0, 1023, 0, PWM_PERIOD));
+    
+    pwmMotorFL_ = constrain(pwmMotorFL_, 0, PWM_PERIOD);
+    pwmMotorFR_ = constrain(pwmMotorFR_, 0, PWM_PERIOD);
+    pwmMotorRL_ = constrain(pwmMotorRL_, 0, PWM_PERIOD);
+    pwmMotorRR_ = constrain(pwmMotorRR_, 0, PWM_PERIOD);
+    
+    pwm_set_duty((pwmMotorFL_), 0);
+    pwm_set_duty((pwmMotorFR_), 3);
+    pwm_set_duty((pwmMotorRR_), 2);
+    pwm_set_duty((pwmMotorRL_), 1);
+
+    pwm_start();
   }
 }
 
