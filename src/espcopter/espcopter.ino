@@ -42,7 +42,7 @@
 //#define ros_flag_mag 1                    //publish magnetometer data
 //#define ros_flag_motors 1                   //subscribe to mottors commands
 
-#define ros_flag_mocap 1                    //subscribe to mocap data
+//#define ros_flag_mocap 1                    //subscribe to mocap data
 //#define ros_flag_filter 1                   //publish filter data
 #define ros_flag_acrorateref                //subscribe to acrorate refference
 #define ros_flag_setgain                    //subscribe to topic to set the PID gains

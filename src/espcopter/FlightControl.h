@@ -27,7 +27,7 @@ void FlightControl_new() {
   if ((micros() - ts) > 4000) { //Update only once per 4ms (250hz update rate)
     ts = micros();
 
-    ahrs.EKF_prediction();
+//    ahrs.EKF_prediction();
 
 //    const_tau_ref = 0.20;
 //    const_omega_ref[0] = 0;
@@ -42,22 +42,22 @@ void FlightControl_new() {
     ahrs.quat2eul(quat,ang);
 
     tau_ref = ahrs.acrorateref[0];
-//    omega_ref[0] = ahrs.acrorateref[1];
-//    omega_ref[1] = ahrs.acrorateref[2];
-//    omega_ref[2] = ahrs.acrorateref[3];
+    omega_ref[0] = ahrs.acrorateref[1];
+    omega_ref[1] = ahrs.acrorateref[2];
+    omega_ref[2] = ahrs.acrorateref[3];
 
 
-err_ang[0] = sin(ahrs.acrorateref[1]/2.0-ang[0]);
-err_ang[1] = sin(ahrs.acrorateref[2]/2.0-ang[1]);
-err_ang[2] = sin(ahrs.acrorateref[3]/2.0-ang[2]);
-
-    omega_ref[0] = 1.0*err_ang[0] + 0.1*(err_ang[0]-last_err_ang[0])/0.004;
-    omega_ref[1] = 1.0*err_ang[1] + 0.1*(err_ang[1]-last_err_ang[1])/0.004;
-    omega_ref[2] = 1.0*err_ang[2] + 0.0*(err_ang[2]-last_err_ang[2])/0.004;
-
-last_err_ang[0] = err_ang[0];
-last_err_ang[1] = err_ang[1];
-last_err_ang[2] = err_ang[2];
+//err_ang[0] = sin(ahrs.acrorateref[1]/2.0-ang[0]);
+//err_ang[1] = sin(ahrs.acrorateref[2]/2.0-ang[1]);
+//err_ang[2] = sin(ahrs.acrorateref[3]/2.0-ang[2]);
+//
+//    omega_ref[0] = 1.0*err_ang[0] + 0.1*(err_ang[0]-last_err_ang[0])/0.004;
+//    omega_ref[1] = 1.0*err_ang[1] + 0.1*(err_ang[1]-last_err_ang[1])/0.004;
+//    omega_ref[2] = 1.0*err_ang[2] + 0.0*(err_ang[2]-last_err_ang[2])/0.004;
+//
+//last_err_ang[0] = err_ang[0];
+//last_err_ang[1] = err_ang[1];
+//last_err_ang[2] = err_ang[2];
 
 //    omega_ref[0] = 1.0*sin(ahrs.acrorateref[1]/2.0-ang[0]);
 //    omega_ref[1] = 1.0*sin(ahrs.acrorateref[2]/2.0-ang[1]);

@@ -76,15 +76,15 @@ class AHRS {
     float EKF_states[16] = {0,0,0, 0,0,0, 0,0,0,0, 0,0,0, 0,0,0}; //[x,y,z, vx,vy,vz, qw,qx,qy,qz, bax,bay,baz, bgx,bgy,bgz]
     float u_motors[4] = {0, 0, 0, 0}; //Adriano
     float acrorateref[4] = {0, 0, 0, 0}; //Adriano
-    float Kpwx = 10;
-    float Kpwy = 10;
+    float Kpwx = 10+5;
+    float Kpwy = 10+5;
     float Kpwz = 15; //good
-    float Kiwx = 0.07;
-    float Kiwy = 0.07;
-    float Kiwz = 0.05; //good
+    float Kiwx = 0.07*0;
+    float Kiwy = 0.07*0;
+    float Kiwz = 0.05*0; //good
 
-    float Kdwx = 0.9;
-    float Kdwy = 0.9;
+    float Kdwx = 0.9+0.5;
+    float Kdwy = 0.9+0.5;
     float Kdwz = 0.5;
 
     float EKF_gyro[3] = {0,0,0}; //gyro filtered?

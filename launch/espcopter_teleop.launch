@@ -5,5 +5,6 @@
         <param name="deadzone" value="0.001"/>
     </node>
     <!-- <node pkg="espcopter" type="teleop.py" name="teleop" output="screen"/> -->
-    <node pkg="espcopter" type="teleop_acrorate.py" name="teleop" output="screen"/>
+    <!-- <node pkg="espcopter" type="teleop_acrorate.py" name="teleop" output="screen"/> -->
+    <node pkg="espcopter" type="open_loop_acrorate.py" name="teleop" output="screen"/>
 </launch>

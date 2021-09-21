@@ -144,7 +144,7 @@ void AHRS::IMU_update() {
     gyro_int[1] = (Buf[10] << 8 | Buf[11]) - MEAN_GYRO[1];
     gyro_int[2] = Buf[12] << 8 | Buf[13] - MEAN_GYRO[2];
     //Convert to rad/s and correct the frame (x forward and z up)
-    float alpha_gyro = 0.25;
+    float alpha_gyro = 0.9;
     gyro[0] = (1-alpha_gyro)*gyro[0] + alpha_gyro*(gyro_int[1] / GYRO_LSB) * DEG2RAD;
     gyro[1] = (1-alpha_gyro)*gyro[1] + -alpha_gyro*(gyro_int[0] / GYRO_LSB) * DEG2RAD;
     gyro[2] = (1-alpha_gyro)*gyro[2] + alpha_gyro*(gyro_int[2] / GYRO_LSB) * DEG2RAD;
@@ -180,7 +180,7 @@ void AHRS::EKF_prediction() {
 //    gyro_int[0] = (Buf[8] << 8 | Buf[9]) - MEAN_GYRO[0];
 //    gyro_int[1] = (Buf[10] << 8 | Buf[11]) - MEAN_GYRO[1];
 //    gyro_int[2] = Buf[12] << 8 | Buf[13] - MEAN_GYRO[2];
-//    //Convert to rad/s and correct the frame (x forward and z up)
+//    //Convert to rad/s and correct the facrorate_controlrame (x forward and z up)
 //    float alpha_gyro = 0.3;
 //    gyro[0] = (1-alpha_gyro)*gyro[0] + alpha_gyro*(gyro_int[1] / GYRO_LSB) * DEG2RAD;
 //    gyro[1] = (1-alpha_gyro)*gyro[1] + -alpha_gyro*(gyro_int[0] / GYRO_LSB) * DEG2RAD;
@@ -389,7 +389,8 @@ z_vel_b[2] = (cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi))*z_vel_w[0] + (cos(
 #define Jy 0.00003
 #define Jz 0.000045
 
-#define Kp 1.2e-4
+//#define Kp 1.2e-4
+#define Kp 1.9e-4 //increase this value to avoid drone flying too much
 #define d 0.0315 // 63mm/2
 #define Kd 1.0e-6 //torque z
 
@@ -422,9 +423,9 @@ void AHRS::acrorate_control(float tau_ref, float omega_ref[3], float u_out[4]){
 //  T_desired[0] = Jx*(cross_omega[0] + Kp_wx*err_omega[0] + Ki_wx*int_err_omega[0]);
 //  T_desired[1] = Jy*(cross_omega[1] + Kp_wy*err_omega[1] + Ki_wy*int_err_omega[1]);
 //  T_desired[2] = Jy*(cross_omega[2] + Kp_wz*err_omega[2] + Ki_wz*int_err_omega[2]);
-  T_desired[0] = cross_omega[0]*0 + Jx*(Kpwx*err_omega[0] + Kiwx*int_err_omega[0] + Kdwx*diff_err_omega[0]);
-  T_desired[1] = cross_omega[1]*0 + Jy*(Kpwy*err_omega[1] + Kiwy*int_err_omega[1] + Kdwy*diff_err_omega[1]);
-  T_desired[2] = cross_omega[2]*0 + Jz*(Kpwz*err_omega[2] + Kiwz*int_err_omega[2] + Kdwz*diff_err_omega[2]);
+  T_desired[0] = cross_omega[0] + Jx*(Kpwx*err_omega[0] + Kiwx*int_err_omega[0] + Kdwx*diff_err_omega[0]);
+  T_desired[1] = cross_omega[1] + Jy*(Kpwy*err_omega[1] + Kiwy*int_err_omega[1] + Kdwy*diff_err_omega[1]);
+  T_desired[2] = cross_omega[2] + Jz*(Kpwz*err_omega[2] + Kiwz*int_err_omega[2] + Kdwz*diff_err_omega[2]);
   T_desired[2] = -T_desired[2];
 
   float u0[4];
