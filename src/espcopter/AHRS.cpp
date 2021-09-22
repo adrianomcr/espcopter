@@ -394,6 +394,10 @@ z_vel_b[2] = (cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi))*z_vel_w[0] + (cos(
 #define d 0.0315 // 63mm/2
 #define Kd 1.0e-6 //torque z
 
+////The constants below correspond to a linearization of the map pwm -> thrust (f_i = c1 + c2*pwm)
+//#define c1 0.0352
+//#define c2 0.94079e-04
+
 #define umin 100
 #define umax 1000
 void AHRS::acrorate_control(float tau_ref, float omega_ref[3], float u_out[4]){
@@ -434,6 +438,12 @@ void AHRS::acrorate_control(float tau_ref, float omega_ref[3], float u_out[4]){
   u0[1] = 1/(4*Kp)*tau_ref -(1/(4*Kp*d))*T_desired[0] -(1/(4*Kp*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
   u0[2] = 1/(4*Kp)*tau_ref -(1/(4*Kp*d))*T_desired[0] +(1/(4*Kp*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
   u0[3] = 1/(4*Kp)*tau_ref +(1/(4*Kp*d))*T_desired[0] +(1/(4*Kp*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
+
+  // Check this new map: f_i = c1 + c2*u
+//  u0[0] = 1/(4*c2)*(tau_ref-4*c1) +(1/(4*c2*d))*T_desired[0] -(1/(4*c2*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
+//  u0[1] = 1/(4*c2)*(tau_ref-4*c1) -(1/(4*c2*d))*T_desired[0] -(1/(4*c2*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
+//  u0[2] = 1/(4*c2)*(tau_ref-4*c1) -(1/(4*c2*d))*T_desired[0] +(1/(4*c2*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
+//  u0[3] = 1/(4*c2)*(tau_ref-4*c1) +(1/(4*c2*d))*T_desired[0] +(1/(4*c2*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
 
   //Map to the motors numbers considered by the espcopter and filter
   float acrorate_alpha = 0.4;

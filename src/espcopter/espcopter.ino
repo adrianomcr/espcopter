@@ -44,8 +44,9 @@
 
 //#define ros_flag_mocap 1                    //subscribe to mocap data
 //#define ros_flag_filter 1                   //publish filter data
-#define ros_flag_acrorateref                //subscribe to acrorate refference
-#define ros_flag_setgain                    //subscribe to topic to set the PID gains
+#define ros_flag_acrorateref 1                //subscribe to acrorate refference
+#define ros_flag_setgain 1                    //subscribe to topic to set the PID gains
+#define ros_flag_pwms 1                       //publish the computed pwms
 /*********************************************************/
 
 
@@ -161,7 +162,13 @@ ros::Publisher *filter_pub;          /* Publisher */
 void update_filter(void);            /* Update Loop */
 #endif
 
-
+#ifdef ros_flag_pwms
+/* Publish filter states */
+geometry_msgs::Quaternion pwms_msg;     /* Message Type */
+String pwms_topic;                 /* Topic name */
+ros::Publisher *pwms_pub;          /* Publisher */
+void update_pwms(void);            /* Update Loop */
+#endif
 
 /* Arm motors service */
 ros::ServiceServer<std_srvs::Trigger::Request, std_srvs::Trigger::Response> *arm_motors_srv;
@@ -277,6 +284,14 @@ void setup() {
   nh.advertise(*filter_pub);
 #endif
 
+#ifdef ros_flag_pwms
+  pwms_topic = drone_name + String("/pwms");                         /* Update topic name */
+  pwms_pub = new ros::Publisher(pwms_topic.c_str(), &pwms_msg);    /* Instantiate publisher */
+  nh.advertise(*pwms_pub);
+#endif
+
+
+
   arm_motors_topic = drone_name + String("/arm_motors");
   arm_motors_srv = new ros::ServiceServer<std_srvs::Trigger::Request, std_srvs::Trigger::Response>(arm_motors_topic.c_str(), &arm_motors_callback);
   nh.advertiseService(*arm_motors_srv);
@@ -381,6 +396,9 @@ void loop() {
 #endif
 #ifdef ros_flag_filter
     update_filter();
+#endif
+#ifdef ros_flag_pwms
+    update_pwms();
 #endif
     gyro_calibration_update();
     mag_calibration_update();
@@ -785,6 +803,27 @@ void update_filter(void) {
   
   filter_msg.header.stamp = nh.now();
   filter_pub->publish(& filter_msg);
+}
+/*********************************************************/
+#endif
+
+
+
+#ifdef ros_flag_pwms
+/*********************************************************
+   COMPUTED PWMS PUBLISHER
+*********************************************************/
+void update_pwms(void) {
+ 
+  //Orientation
+  pwms_msg.w = ahrs.u_motors[0];
+  pwms_msg.x = ahrs.u_motors[1];
+  pwms_msg.y = ahrs.u_motors[2];
+  pwms_msg.z = ahrs.u_motors[3];
+
+
+  pwms_pub->publish(& pwms_msg);
+
 }
 /*********************************************************/
 #endif
