@@ -144,7 +144,7 @@ void AHRS::IMU_update() {
     gyro_int[1] = (Buf[10] << 8 | Buf[11]) - MEAN_GYRO[1];
     gyro_int[2] = Buf[12] << 8 | Buf[13] - MEAN_GYRO[2];
     //Convert to rad/s and correct the frame (x forward and z up)
-    float alpha_gyro = 0.8;
+    float alpha_gyro = 0.99;
     gyro[0] = (1-alpha_gyro)*gyro[0] + alpha_gyro*(gyro_int[1] / GYRO_LSB) * DEG2RAD;
     gyro[1] = (1-alpha_gyro)*gyro[1] + -alpha_gyro*(gyro_int[0] / GYRO_LSB) * DEG2RAD;
     gyro[2] = (1-alpha_gyro)*gyro[2] + alpha_gyro*(gyro_int[2] / GYRO_LSB) * DEG2RAD;
@@ -390,13 +390,13 @@ z_vel_b[2] = (cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi))*z_vel_w[0] + (cos(
 #define Jz 0.000045
 
 //#define Kp 1.2e-4
-#define Kp 1.9e-4 //increase this value to avoid drone flying too much
+//#define Kp 1.9e-4 //increase this value to avoid drone flying too much
 #define d 0.0315 // 63mm/2
 #define Kd 1.0e-6 //torque z
 
 ////The constants below correspond to a linearization of the map pwm -> thrust (f_i = c1 + c2*pwm)
-//#define c1 0.0352
-//#define c2 0.94079e-04
+#define c1 0.0352
+#define c2 0.94079e-04
 
 #define umin 100
 #define umax 1000
@@ -412,9 +412,9 @@ void AHRS::acrorate_control(float tau_ref, float omega_ref[3], float u_out[4]){
   last_err_omega[2] = err_omega[2];
 
   if (tau_ref > 0.4){
-    int_err_omega[0] = int_err_omega[0] + err_omega[0]*0.004;
-    int_err_omega[1] = int_err_omega[1] + err_omega[1]*0.004;
-    int_err_omega[2] = int_err_omega[2] + err_omega[2]*0.004;
+    int_err_omega[0] = int_err_omega[0] + err_omega[0]*0.002;
+    int_err_omega[1] = int_err_omega[1] + err_omega[1]*0.002;
+    int_err_omega[2] = int_err_omega[2] + err_omega[2]*0.002;
   }
 
 
@@ -427,26 +427,26 @@ void AHRS::acrorate_control(float tau_ref, float omega_ref[3], float u_out[4]){
 //  T_desired[0] = Jx*(cross_omega[0] + Kp_wx*err_omega[0] + Ki_wx*int_err_omega[0]);
 //  T_desired[1] = Jy*(cross_omega[1] + Kp_wy*err_omega[1] + Ki_wy*int_err_omega[1]);
 //  T_desired[2] = Jy*(cross_omega[2] + Kp_wz*err_omega[2] + Ki_wz*int_err_omega[2]);
-  T_desired[0] = cross_omega[0] + Jx*(Kpwx*err_omega[0] + Kiwx*int_err_omega[0] + Kdwx*diff_err_omega[0]);
-  T_desired[1] = cross_omega[1] + Jy*(Kpwy*err_omega[1] + Kiwy*int_err_omega[1] + Kdwy*diff_err_omega[1]);
-  T_desired[2] = cross_omega[2] + Jz*(Kpwz*err_omega[2] + Kiwz*int_err_omega[2] + Kdwz*diff_err_omega[2]);
+  T_desired[0] = cross_omega[0] + Jx*(Kpwx*err_omega[0] + Kiwx*int_err_omega[0] + Kdwx*diff_err_omega[0] + omega_ref_dot[0]);
+  T_desired[1] = cross_omega[1] + Jy*(Kpwy*err_omega[1] + Kiwy*int_err_omega[1] + Kdwy*diff_err_omega[1] + omega_ref_dot[1]);
+  T_desired[2] = cross_omega[2] + Jz*(Kpwz*err_omega[2] + Kiwz*int_err_omega[2] + Kdwz*diff_err_omega[2] + omega_ref_dot[2]*0);
   T_desired[2] = -T_desired[2];
 
   float u0[4];
 
-  u0[0] = 1/(4*Kp)*tau_ref +(1/(4*Kp*d))*T_desired[0] -(1/(4*Kp*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
-  u0[1] = 1/(4*Kp)*tau_ref -(1/(4*Kp*d))*T_desired[0] -(1/(4*Kp*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
-  u0[2] = 1/(4*Kp)*tau_ref -(1/(4*Kp*d))*T_desired[0] +(1/(4*Kp*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
-  u0[3] = 1/(4*Kp)*tau_ref +(1/(4*Kp*d))*T_desired[0] +(1/(4*Kp*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
+//  u0[0] = 1/(4*Kp)*tau_ref +(1/(4*Kp*d))*T_desired[0] -(1/(4*Kp*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
+//  u0[1] = 1/(4*Kp)*tau_ref -(1/(4*Kp*d))*T_desired[0] -(1/(4*Kp*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
+//  u0[2] = 1/(4*Kp)*tau_ref -(1/(4*Kp*d))*T_desired[0] +(1/(4*Kp*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
+//  u0[3] = 1/(4*Kp)*tau_ref +(1/(4*Kp*d))*T_desired[0] +(1/(4*Kp*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
 
   // Check this new map: f_i = c1 + c2*u
-//  u0[0] = 1/(4*c2)*(tau_ref-4*c1) +(1/(4*c2*d))*T_desired[0] -(1/(4*c2*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
-//  u0[1] = 1/(4*c2)*(tau_ref-4*c1) -(1/(4*c2*d))*T_desired[0] -(1/(4*c2*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
-//  u0[2] = 1/(4*c2)*(tau_ref-4*c1) -(1/(4*c2*d))*T_desired[0] +(1/(4*c2*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
-//  u0[3] = 1/(4*c2)*(tau_ref-4*c1) +(1/(4*c2*d))*T_desired[0] +(1/(4*c2*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
+  u0[0] = 1/(4*c2)*(tau_ref-4*c1) +(1/(4*c2*d))*T_desired[0] -(1/(4*c2*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
+  u0[1] = 1/(4*c2)*(tau_ref-4*c1) -(1/(4*c2*d))*T_desired[0] -(1/(4*c2*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
+  u0[2] = 1/(4*c2)*(tau_ref-4*c1) -(1/(4*c2*d))*T_desired[0] +(1/(4*c2*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
+  u0[3] = 1/(4*c2)*(tau_ref-4*c1) +(1/(4*c2*d))*T_desired[0] +(1/(4*c2*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
 
   //Map to the motors numbers considered by the espcopter and filter
-  float acrorate_alpha = 0.4;
+  float acrorate_alpha = 0.9;
   u_motors[0] = (1-acrorate_alpha)*u_motors[0] + (acrorate_alpha)*u0[0];
   u_motors[1] = (1-acrorate_alpha)*u_motors[1] + (acrorate_alpha)*u0[2];
   u_motors[2] = (1-acrorate_alpha)*u_motors[2] + (acrorate_alpha)*u0[3];

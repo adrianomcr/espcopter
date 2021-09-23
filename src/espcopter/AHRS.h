@@ -76,16 +76,44 @@ class AHRS {
     float EKF_states[16] = {0,0,0, 0,0,0, 0,0,0,0, 0,0,0, 0,0,0}; //[x,y,z, vx,vy,vz, qw,qx,qy,qz, bax,bay,baz, bgx,bgy,bgz]
     float u_motors[4] = {0, 0, 0, 0}; //Adriano
     float acrorateref[4] = {0, 0, 0, 0}; //Adriano
-    float Kpwx = 10+5;
-    float Kpwy = 10+5;
-    float Kpwz = 15; //good
-    float Kiwx = 0.07*0;
-    float Kiwy = 0.07*0;
-    float Kiwz = 0.05*0; //good
+    float acrorateref_last[4] = {0, 0, 0, 0}; //Adriano
+    float omega_ref_dot[3] = {0,0,0};
 
-    float Kdwx = 0.9+0.5;
-    float Kdwy = 0.9+0.5;
-    float Kdwz = 0.5;
+//    //Linear
+//    float Kpwx = 15;
+//    float Kpwy = 15;
+//    float Kpwz = 15; //good
+//    float Kiwx = 0;
+//    float Kiwy = 0;
+//    float Kiwz = 0; //good
+//    float Kdwx = 1.4;
+//    float Kdwy = 1.4;
+//    float Kdwz = 0.5;
+    
+//    //Afine
+//    float Kpwx = 7;
+//    float Kpwy = 7;
+//    float Kpwz = 7; //good
+//    float Kiwx = 0;
+//    float Kiwy = 0;
+//    float Kiwz = 0; //good
+//    float Kdwx = 0.7;
+//    float Kdwy = 0.7;
+//    float Kdwz = 0.25;
+
+    //Afine - with w ref dot ff
+    float Kpwx = 6 + 1;
+    float Kpwy = 6 + 1;
+    float Kpwz = 6 + 1;
+    float Kiwx = 2.5 + 1;
+    float Kiwy = 2.5 + 1;
+    float Kiwz = 2.5 + 1;
+    float Kdwx = 2.2 + 0.5 + 1;
+    float Kdwy = 2.2 + 0.5 + 1;
+    float Kdwz = 0.25*2 + 1;
+
+
+
 
     float EKF_gyro[3] = {0,0,0}; //gyro filtered?
     float EKF_acc[3] = {0,0,0}; //gyro filtered?

@@ -17,14 +17,25 @@ float omega_ref[3];
 float err_ang[3] = {0,0,0};
 float last_err_ang[3] = {0,0,0};
 
-void FlightControl_new() {
-
-  if ((micros() - ts_imu) > 1000) { //Update only once per 1ms (1000hz update rate)
+void FlightControl_imu_update() {
+  
+  if ((micros() - ts_imu) > 2000) { //Update only once per 2ms (500Hz update rate)
     ts_imu = micros();
     ahrs.IMU_update();
   }
+
+}
+
+
+void FlightControl_new() {
   
-  if ((micros() - ts) > 4000) { //Update only once per 4ms (250hz update rate)
+  if ((micros() - ts_imu) > 2000) { //Update only once per 2ms (500Hz update rate)
+    ts_imu = micros();
+    ahrs.IMU_update();
+  }
+
+    
+  if ((micros() - ts) > 2000) { //Update only once per 2ms (500Hz update rate)
     ts = micros();
 
 //    ahrs.EKF_prediction();

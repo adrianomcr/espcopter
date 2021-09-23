@@ -435,6 +435,7 @@ void loop() {
         FlightControl_new();
       }
       else{
+        FlightControl_imu_update();
         pwm_set_duty((0), 0);
         pwm_set_duty((0), 3);
         pwm_set_duty((0), 2);
@@ -484,13 +485,13 @@ void arm_motors_callback(const std_srvs::Trigger::Request& req, std_srvs::Trigge
   analogWriteFreq(20000);
   if (armControl == 1) {
     sprintf(mbuf, "\33[91m[%s] Be careful! Motors are enabled!\33[0m", drone_name.c_str());
-    for (int i = 0; i < 50; i += 2) {
+    for (int i = 0; i < 150; i += 2) {
       pwm_set_duty((i), 0);
       pwm_set_duty((i), 3);
       pwm_set_duty((i), 2);
       pwm_set_duty((i), 1);
       pwm_start();
-      delay(25);
+      delay(5);
     }
   } else {
     enable_motors_only = false;
@@ -627,10 +628,24 @@ void mocap_callback(const geometry_msgs::PoseStamped& msg) {
 *********************************************************/
 void acrorateref_callback(const geometry_msgs::Quaternion& msg) {
 
+  ahrs.acrorateref_last[0] = ahrs.acrorateref[0];
+  ahrs.acrorateref_last[1] = ahrs.acrorateref[1];
+  ahrs.acrorateref_last[2] = ahrs.acrorateref[2];
+  ahrs.acrorateref_last[3] = ahrs.acrorateref[3];
+
   ahrs.acrorateref[0] = msg.w;
   ahrs.acrorateref[1] = msg.x;
   ahrs.acrorateref[2] = msg.y;
   ahrs.acrorateref[3] = msg.z;
+  
+  float dt_ref = 1/90.0;
+  float alpha_wr_dot = 0.4;
+
+  ahrs.omega_ref_dot[0] = (1-alpha_wr_dot)*ahrs.omega_ref_dot[0] + alpha_wr_dot*(ahrs.acrorateref[1]-ahrs.acrorateref_last[1])/dt_ref;
+  ahrs.omega_ref_dot[1] = (1-alpha_wr_dot)*ahrs.omega_ref_dot[1] + alpha_wr_dot*(ahrs.acrorateref[2]-ahrs.acrorateref_last[2])/dt_ref;
+  ahrs.omega_ref_dot[2] = (1-alpha_wr_dot)*ahrs.omega_ref_dot[2] + alpha_wr_dot*(ahrs.acrorateref[3]-ahrs.acrorateref_last[3])/dt_ref;
+
+
 }
 /*********************************************************/
 #endif
