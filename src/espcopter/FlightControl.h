@@ -37,9 +37,9 @@ void FlightControl_new() {
 //    ahrs.acrorate_control(const_tau_ref, const_omega_ref, u_pwm);
 
 
-    float quat[4] = {ahrs.EKF_states[6], ahrs.EKF_states[7], ahrs.EKF_states[8], ahrs.EKF_states[9]};
-    float ang[3];
-    ahrs.quat2eul(quat,ang);
+//    float quat[4] = {ahrs.EKF_states[6], ahrs.EKF_states[7], ahrs.EKF_states[8], ahrs.EKF_states[9]};
+//    float ang[3];
+//    ahrs.quat2eul(quat,ang);
 
     tau_ref = ahrs.acrorateref[0];
     omega_ref[0] = ahrs.acrorateref[1];

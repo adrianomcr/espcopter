@@ -144,7 +144,7 @@ void AHRS::IMU_update() {
     gyro_int[1] = (Buf[10] << 8 | Buf[11]) - MEAN_GYRO[1];
     gyro_int[2] = Buf[12] << 8 | Buf[13] - MEAN_GYRO[2];
     //Convert to rad/s and correct the frame (x forward and z up)
-    float alpha_gyro = 0.9;
+    float alpha_gyro = 0.8;
     gyro[0] = (1-alpha_gyro)*gyro[0] + alpha_gyro*(gyro_int[1] / GYRO_LSB) * DEG2RAD;
     gyro[1] = (1-alpha_gyro)*gyro[1] + -alpha_gyro*(gyro_int[0] / GYRO_LSB) * DEG2RAD;
     gyro[2] = (1-alpha_gyro)*gyro[2] + alpha_gyro*(gyro_int[2] / GYRO_LSB) * DEG2RAD;
