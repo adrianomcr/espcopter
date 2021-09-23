@@ -102,14 +102,14 @@ class AHRS {
 //    float Kdwz = 0.25;
 
     //Afine - with w ref dot ff
-    float Kpwx = 6 + 1;
+    float Kpwx = 6 + 1 + 3;
     float Kpwy = 6 + 1;
     float Kpwz = 6 + 1;
-    float Kiwx = 2.5 + 1;
+    float Kiwx = 2.5 + 1 +2;
     float Kiwy = 2.5 + 1;
     float Kiwz = 2.5 + 1;
-    float Kdwx = 2.2 + 0.5 + 1;
-    float Kdwy = 2.2 + 0.5 + 1;
+    float Kdwx = 2.2 + 0.5 + 1 + 1;
+    float Kdwy = 2.2 + 0.5 + 1 + 1;
     float Kdwz = 0.25*2 + 1;
 
 
