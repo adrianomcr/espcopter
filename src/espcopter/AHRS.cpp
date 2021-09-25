@@ -398,23 +398,31 @@ z_vel_b[2] = (cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi))*z_vel_w[0] + (cos(
 #define c1 0.0352
 #define c2 0.94079e-04
 
+#define bias_pwm_0 -15
+#define bias_pwm_1 -15 -10
+#define bias_pwm_2 -10
+#define bias_pwm_3 0
+
+#define K_tau 10.0
+#define m 0.0395
+
 #define umin 100
 #define umax 1000
-void AHRS::acrorate_control(float tau_ref, float omega_ref[3], float u_out[4]){
+void AHRS::acrorate_control(float tau_ref, float omega_ref[3], float dt_in, float u_out[4]){
 
   
   float err_omega[3] = {omega_ref[0]-gyro[0], omega_ref[1]-gyro[1], omega_ref[2]-gyro[2]};
 
 
-  float diff_err_omega[3] = {(err_omega[0]-last_err_omega[0])/0.004, (err_omega[1]-last_err_omega[1])/0.004, (err_omega[2]-last_err_omega[2])/0.004};
+  float diff_err_omega[3] = {(err_omega[0]-last_err_omega[0])/dt_in, (err_omega[1]-last_err_omega[1])/dt_in, (err_omega[2]-last_err_omega[2])/dt_in};
   last_err_omega[0] = err_omega[0];
   last_err_omega[1] = err_omega[1];
   last_err_omega[2] = err_omega[2];
 
-  if (tau_ref > 0.4){
-    int_err_omega[0] = int_err_omega[0] + err_omega[0]*0.002;
-    int_err_omega[1] = int_err_omega[1] + err_omega[1]*0.002;
-    int_err_omega[2] = int_err_omega[2] + err_omega[2]*0.002;
+  if (tau_ref > 0.2){
+    int_err_omega[0] = int_err_omega[0] + err_omega[0]*dt_in;
+    int_err_omega[1] = int_err_omega[1] + err_omega[1]*dt_in;
+    int_err_omega[2] = int_err_omega[2] + err_omega[2]*dt_in;
   }
 
 
@@ -440,10 +448,17 @@ void AHRS::acrorate_control(float tau_ref, float omega_ref[3], float u_out[4]){
 //  u0[3] = 1/(4*Kp)*tau_ref +(1/(4*Kp*d))*T_desired[0] +(1/(4*Kp*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
 
   // Check this new map: f_i = c1 + c2*u
+  tau_ref = tau_ref + K_tau*(tau_ref - m*accel_si[2]);
   u0[0] = 1/(4*c2)*(tau_ref-4*c1) +(1/(4*c2*d))*T_desired[0] -(1/(4*c2*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
   u0[1] = 1/(4*c2)*(tau_ref-4*c1) -(1/(4*c2*d))*T_desired[0] -(1/(4*c2*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
   u0[2] = 1/(4*c2)*(tau_ref-4*c1) -(1/(4*c2*d))*T_desired[0] +(1/(4*c2*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
   u0[3] = 1/(4*c2)*(tau_ref-4*c1) +(1/(4*c2*d))*T_desired[0] +(1/(4*c2*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
+
+  u0[0] = u0[0] + bias_pwm_0;
+  u0[1] = u0[1] + bias_pwm_1;
+  u0[2] = u0[2] + bias_pwm_2;
+  u0[3] = u0[3] + bias_pwm_3;
+
 
   //Map to the motors numbers considered by the espcopter and filter
   float acrorate_alpha = 0.9;

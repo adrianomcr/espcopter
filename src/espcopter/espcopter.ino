@@ -110,7 +110,7 @@ ros::Subscriber<geometry_msgs::Quaternion> *acrorateref_sub;
 /* Acrorate reference callback*/
 void setgain_callback(const geometry_msgs::Quaternion& msg);
 String setgain_topic;                 /* Topic name */
-ros::Subscriber<geometry_msgs::Point> *setgain_sub;
+ros::Subscriber<geometry_msgs::Quaternion> *setgain_sub;
 #endif
 
 #ifdef ros_flag_battery
@@ -243,7 +243,7 @@ void setup() {
 
 #ifdef ros_flag_setgain
   setgain_topic =  drone_name + String("/set_gain");
-  setgain_sub = new ros::Subscriber<geometry_msgs::Point>(setgain_topic.c_str(), setgain_callback);
+  setgain_sub = new ros::Subscriber<geometry_msgs::Quaternion>(setgain_topic.c_str(), setgain_callback);
 #endif
 
 #ifdef ros_flag_battery
@@ -654,7 +654,7 @@ void acrorateref_callback(const geometry_msgs::Quaternion& msg) {
 /*********************************************************
    ACRORATE REF CALLBACK
 *********************************************************/
-void setgain_callback(const geometry_msgs::Point& msg) {
+void setgain_callback(const geometry_msgs::Quaternion& msg) {
 
   
 
@@ -664,17 +664,50 @@ void setgain_callback(const geometry_msgs::Point& msg) {
 //  sprintf(mbuf, "\33[93m[%s] Proportional gain set to: %.3f, %.3f, %.3f\33[0m\n", drone_name.c_str(), msg.x, msg.y, msg.z);
 //  nh.loginfo(mbuf);
 
-  ahrs.Kiwx = msg.x;
-  ahrs.Kiwy = msg.y;
-  ahrs.Kiwz = msg.z;
-  sprintf(mbuf, "\33[93m[%s] Integral gain set to: %.3f, %.3f, %.3f\33[0m\n", drone_name.c_str(), msg.x, msg.y, msg.z);
-  nh.loginfo(mbuf);
+//  ahrs.Kiwx = msg.x;
+//  ahrs.Kiwy = msg.y;
+//  ahrs.Kiwz = msg.z;
+//  sprintf(mbuf, "\33[93m[%s] Integral gain set to: %.3f, %.3f, %.3f\33[0m\n", drone_name.c_str(), msg.x, msg.y, msg.z);
+//  nh.loginfo(mbuf);
 
 //  ahrs.Kdwx = msg.x;
 //  ahrs.Kdwy = msg.y;
 //  ahrs.Kdwz = msg.z;
 //  sprintf(mbuf, "\33[93m[%s] Derivative gain set to: %.3f, %.3f, %.3f\33[0m\n", drone_name.c_str(), msg.x, msg.y, msg.z);
 //  nh.loginfo(mbuf);
+
+
+
+//    //Afine - with w ref dot ff dt=0.002 rining at 1000Hz
+//    float Kpwx = 10;
+//    float Kpwy = 7;
+//    float Kpwz = 7;
+//    float Kiwx = 5.5;
+//    float Kiwy = 3.5;
+//    float Kiwz = 3.5;
+//    float Kdwx = 4.7;
+//    float Kdwy = 4.7;
+//    float Kdwz = 1.5;
+
+  if(msg.w == 1){ //set x and y axis
+    ahrs.Kpwx = 8 + msg.x;
+    ahrs.Kpwy = 8 + msg.x;
+
+    ahrs.Kiwx = 6 + msg.y;
+    ahrs.Kiwy = 6 + msg.y;
+
+    ahrs.Kdwx = 2.4 + msg.z;
+    ahrs.Kdwy = 2.4 + msg.z;
+
+    sprintf(mbuf, "\33[93m[%s] X and Y gains set to: P=%.3f, I=%.3f, D=%.3f\33[0m\n", drone_name.c_str(), ahrs.Kpwx, ahrs.Kiwx, ahrs.Kdwx);
+//    sprintf(mbuf, "\33[93m[%s] Y gains set to: P=%.3f, I=%.3f, D=%.3f\33[0m\n", drone_name.c_str(), ahrs.Kpwy, ahrs.Kiwy, ahrs.Kdwy);
+    nh.loginfo(mbuf);
+  }
+
+
+
+
+
 }
 /*********************************************************/
 #endif

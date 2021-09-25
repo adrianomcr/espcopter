@@ -19,7 +19,7 @@ float last_err_ang[3] = {0,0,0};
 
 void FlightControl_imu_update() {
   
-  if ((micros() - ts_imu) > 2000) { //Update only once per 2ms (500Hz update rate)
+  if ((micros() - ts_imu) > 1000) { //Update only once per 1ms (1000Hz update rate)
     ts_imu = micros();
     ahrs.IMU_update();
   }
@@ -29,7 +29,7 @@ void FlightControl_imu_update() {
 
 void FlightControl_new() {
   
-  if ((micros() - ts_imu) > 2000) { //Update only once per 2ms (500Hz update rate)
+  if ((micros() - ts_imu) > 1000) { //Update only once per 1ms (1000Hz update rate)
     ts_imu = micros();
     ahrs.IMU_update();
   }
@@ -74,7 +74,7 @@ void FlightControl_new() {
 //    omega_ref[1] = 1.0*sin(ahrs.acrorateref[2]/2.0-ang[1]);
 //    omega_ref[2] = 1.0*sin((0-ang[2]));
     float u_pwm[4];
-    ahrs.acrorate_control(tau_ref, omega_ref, u_pwm);
+    ahrs.acrorate_control(tau_ref, omega_ref, 0.001, u_pwm);
 
 
 //    u_pwm[0] = 00;

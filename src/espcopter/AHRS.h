@@ -18,7 +18,7 @@ class AHRS {
     void EKF_getStates(float states[9]); //[Adriano]
     void quat2eul(float q_in[4], float ang_out[3]); //[Adriano]
     void eul2quat(float ang_in[3], float quat_out[4]); //[Adriano]
-    void acrorate_control(float tau_ref, float omega_ref[3], float u_out[4]); //[Adriano]
+    void acrorate_control(float tau_ref, float omega_ref[3], float dt_in, float u_out[4]); //[Adriano]
     void quat_normalize(float q_in[4], float q_out[4]);
     void quat_multiply(float qa[4], float qb[4], float q_out[4]); //[Adriano]
     void quat_vec_transform(float q_in[4], float v_in[3], float v_out[3]); //[Adriano]
@@ -102,15 +102,15 @@ class AHRS {
 //    float Kdwz = 0.25;
 
     //Afine - with w ref dot ff
-    float Kpwx = 6 + 1 + 3;
-    float Kpwy = 6 + 1;
-    float Kpwz = 6 + 1;
-    float Kiwx = 2.5 + 1 +2;
-    float Kiwy = 2.5 + 1;
-    float Kiwz = 2.5 + 1;
-    float Kdwx = 2.2 + 0.5 + 1 + 1;
-    float Kdwy = 2.2 + 0.5 + 1 + 1;
-    float Kdwz = 0.25*2 + 1;
+    float Kpwx = 10;//6 + 1 + 3;
+    float Kpwy = 7;//6 + 1;
+    float Kpwz = 7;//6 + 1;
+    float Kiwx = 5.5;//2.5 + 1 +2;
+    float Kiwy = 3.5;//2.5 + 1;
+    float Kiwz = 3.5;//2.5 + 1;
+    float Kdwx = 4.7;//2.2 + 0.5 + 1 + 1;
+    float Kdwy = 4.7;//2.2 + 0.5 + 1 + 1;
+    float Kdwz = 1.5;//0.25*2 + 1;
 
 
 
