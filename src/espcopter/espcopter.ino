@@ -639,7 +639,7 @@ void acrorateref_callback(const geometry_msgs::Quaternion& msg) {
   ahrs.acrorateref[3] = msg.z;
   
   float dt_ref = 1/90.0;
-  float alpha_wr_dot = 0.4;
+  float alpha_wr_dot = 0.6-0.1;
 
   ahrs.omega_ref_dot[0] = (1-alpha_wr_dot)*ahrs.omega_ref_dot[0] + alpha_wr_dot*(ahrs.acrorateref[1]-ahrs.acrorateref_last[1])/dt_ref;
   ahrs.omega_ref_dot[1] = (1-alpha_wr_dot)*ahrs.omega_ref_dot[1] + alpha_wr_dot*(ahrs.acrorateref[2]-ahrs.acrorateref_last[2])/dt_ref;
