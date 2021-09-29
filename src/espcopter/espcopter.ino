@@ -626,25 +626,91 @@ void mocap_callback(const geometry_msgs::PoseStamped& msg) {
 /*********************************************************
    ACRORATE REF CALLBACK
 *********************************************************/
+#define N_BUF_REF 10
+#define MIN_TIME_ACRORATEREF 0.035
+float buf_t_ref[N_BUF_REF];
+float buf_wx_ref[N_BUF_REF];
+float buf_wy_ref[N_BUF_REF];
+float buf_wz_ref[N_BUF_REF];
+bool start_acrorateref = false;
+int i_ref = 0;
+
 void acrorateref_callback(const geometry_msgs::Quaternion& msg) {
 
-  ahrs.acrorateref_last[0] = ahrs.acrorateref[0];
-  ahrs.acrorateref_last[1] = ahrs.acrorateref[1];
-  ahrs.acrorateref_last[2] = ahrs.acrorateref[2];
-  ahrs.acrorateref_last[3] = ahrs.acrorateref[3];
+
+  ahrs.omega_ref_dot[0] = 0.0;
+  ahrs.omega_ref_dot[1] = 0.0;
+  ahrs.omega_ref_dot[2] = 0.0;
 
   ahrs.acrorateref[0] = msg.w;
   ahrs.acrorateref[1] = msg.x;
   ahrs.acrorateref[2] = msg.y;
   ahrs.acrorateref[3] = msg.z;
-  
-  float dt_ref = 1/90.0;
-  float alpha_wr_dot = 0.6-0.1;
 
-  ahrs.omega_ref_dot[0] = (1-alpha_wr_dot)*ahrs.omega_ref_dot[0] + alpha_wr_dot*(ahrs.acrorateref[1]-ahrs.acrorateref_last[1])/dt_ref;
-  ahrs.omega_ref_dot[1] = (1-alpha_wr_dot)*ahrs.omega_ref_dot[1] + alpha_wr_dot*(ahrs.acrorateref[2]-ahrs.acrorateref_last[2])/dt_ref;
-  ahrs.omega_ref_dot[2] = (1-alpha_wr_dot)*ahrs.omega_ref_dot[2] + alpha_wr_dot*(ahrs.acrorateref[3]-ahrs.acrorateref_last[3])/dt_ref;
 
+  //Compute the derivative of the acro rate reference
+  if(start_acrorateref){
+
+    buf_t_ref[i_ref] = micros();
+    buf_wx_ref[i_ref] = msg.x;
+    buf_wy_ref[i_ref] = msg.y;
+    buf_wz_ref[i_ref] = msg.z;
+    
+    int j = i_ref;
+
+    for (int i=1; i<N_BUF_REF; i++){
+      j = i_ref-i;
+
+      if(j<0){
+        j = j + N_BUF_REF;
+      }
+      if(buf_t_ref[i_ref]-buf_t_ref[j] > MIN_TIME_ACRORATEREF){
+        ahrs.omega_ref_dot[0] = (buf_wx_ref[i_ref]-buf_wx_ref[j])/(buf_t_ref[i_ref]-buf_t_ref[j]);
+        ahrs.omega_ref_dot[1] = (buf_wy_ref[i_ref]-buf_wy_ref[j])/(buf_t_ref[i_ref]-buf_t_ref[j]);
+        ahrs.omega_ref_dot[2] = (buf_wz_ref[i_ref]-buf_wz_ref[j])/(buf_t_ref[i_ref]-buf_t_ref[j]);
+        break;
+      }
+    }
+    i_ref = i_ref + 1;
+    if (i_ref == N_BUF_REF){
+      i_ref = 0;
+    }
+  }
+  else{
+
+    buf_t_ref[i_ref] = micros();
+    buf_wx_ref[i_ref] = msg.x;
+    buf_wy_ref[i_ref] = msg.y;
+    buf_wz_ref[i_ref] = msg.z;
+    i_ref = i_ref + 1;
+
+    if (i_ref == N_BUF_REF){
+      i_ref = 0;
+      start_acrorateref = true;
+    }
+  }
+
+
+
+
+
+
+//  ahrs.acrorateref_last[0] = ahrs.acrorateref[0];
+//  ahrs.acrorateref_last[1] = ahrs.acrorateref[1];
+//  ahrs.acrorateref_last[2] = ahrs.acrorateref[2];
+//  ahrs.acrorateref_last[3] = ahrs.acrorateref[3];
+//
+//  ahrs.acrorateref[0] = msg.w;
+//  ahrs.acrorateref[1] = msg.x;
+//  ahrs.acrorateref[2] = msg.y;
+//  ahrs.acrorateref[3] = msg.z;
+//  
+//  float dt_ref = 1/90.0;
+//  float alpha_wr_dot = 0.4;
+//
+//  ahrs.omega_ref_dot[0] = (1-alpha_wr_dot)*ahrs.omega_ref_dot[0] + alpha_wr_dot*(ahrs.acrorateref[1]-ahrs.acrorateref_last[1])/dt_ref;
+//  ahrs.omega_ref_dot[1] = (1-alpha_wr_dot)*ahrs.omega_ref_dot[1] + alpha_wr_dot*(ahrs.acrorateref[2]-ahrs.acrorateref_last[2])/dt_ref;
+//  ahrs.omega_ref_dot[2] = (1-alpha_wr_dot)*ahrs.omega_ref_dot[2] + alpha_wr_dot*(ahrs.acrorateref[3]-ahrs.acrorateref_last[3])/dt_ref;
 
 }
 /*********************************************************/

@@ -25,6 +25,7 @@ class AHRS {
     void cross(float qa[3], float qb[3], float qc[3]); //[Adriano]
 //    void set_motors(float u[4]); //Adriano
     void IMU_update(); //Adriano
+    void compute_error_derivative(float ew[3], float ew_deriv[3]); //Adriano
     
     void normalize(float output[3], int16_t input[3]);
     void setZero();
