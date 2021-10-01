@@ -398,33 +398,46 @@ z_vel_b[2] = (cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi))*z_vel_w[0] + (cos(
 #define c1 0.0352
 #define c2 0.94079e-04
 
-#define bias_pwm_0 -15
-#define bias_pwm_1 -15 -10
-#define bias_pwm_2 -10
+//#define bias_pwm_0 -15
+//#define bias_pwm_1 -15 -10
+//#define bias_pwm_2 -10
+//#define bias_pwm_3 0
+#define bias_pwm_0 0
+#define bias_pwm_1 0
+#define bias_pwm_2 0
 #define bias_pwm_3 0
 
 #define K_tau 10.0
 #define m 0.0395
 
-#define umin 100
-#define umax 1000
+#define umin 300
+#define umax 850
 
 
-#define N_BUF_DERIV 20
-#define MIN_TIME_DERIV 0.005
-float buf_t[N_BUF_DERIV];
+
+#define N_BUF_DERIV 50
+//#define MIN_TIME_DERIV 0.002*1000*1000  // in microseconds
+#define MIN_TIME_DERIV 2000*5  // in microseconds
+unsigned long buf_t[N_BUF_DERIV];
 float buf_ewx[N_BUF_DERIV];
 float buf_ewy[N_BUF_DERIV];
 float buf_ewz[N_BUF_DERIV];
 bool start_deriv = false;
 int i_ref_deriv = 0;
 
+
 void AHRS::acrorate_control(float tau_ref, float omega_ref[3], float dt_in, float u_out[4]){
 
   
   float err_omega[3] = {omega_ref[0]-gyro[0], omega_ref[1]-gyro[1], omega_ref[2]-gyro[2]};
 
-//  float diff_err_omega[3] = {(err_omega[0]-last_err_omega[0])/dt_in, (err_omega[1]-last_err_omega[1])/dt_in, (err_omega[2]-last_err_omega[2])/dt_in};
+
+////  float diff_err_omega[3] = {(err_omega[0]-last_err_omega[0])/dt_in, (err_omega[1]-last_err_omega[1])/dt_in, (err_omega[2]-last_err_omega[2])/dt_in};
+//  float diff_err_omega[3];
+//  float alpha_dif = 0.3-0.1;
+//  diff_err_omega[0] = (1-alpha_dif)*diff_err_omega[0] + alpha_dif*(err_omega[0]-last_err_omega[0])/(dt_in/2.0);
+//  diff_err_omega[1] = (1-alpha_dif)*diff_err_omega[1] + alpha_dif*(err_omega[1]-last_err_omega[1])/(dt_in/2.0);
+//  diff_err_omega[2] = (1-alpha_dif)*diff_err_omega[2] + alpha_dif*(err_omega[2]-last_err_omega[2])/(dt_in/2.0); 
 //  last_err_omega[0] = err_omega[0];
 //  last_err_omega[1] = err_omega[1];
 //  last_err_omega[2] = err_omega[2];
@@ -451,7 +464,7 @@ void AHRS::acrorate_control(float tau_ref, float omega_ref[3], float dt_in, floa
 //  T_desired[2] = Jy*(cross_omega[2] + Kp_wz*err_omega[2] + Ki_wz*int_err_omega[2]);
   T_desired[0] = cross_omega[0] + Jx*(Kpwx*err_omega[0] + Kiwx*int_err_omega[0] + Kdwx*diff_err_omega[0] + omega_ref_dot[0]);
   T_desired[1] = cross_omega[1] + Jy*(Kpwy*err_omega[1] + Kiwy*int_err_omega[1] + Kdwy*diff_err_omega[1] + omega_ref_dot[1]);
-  T_desired[2] = cross_omega[2] + Jz*(Kpwz*err_omega[2] + Kiwz*int_err_omega[2] + Kdwz*diff_err_omega[2] + omega_ref_dot[2]*0);
+  T_desired[2] = cross_omega[2] + Jz*(Kpwz*err_omega[2] + Kiwz*int_err_omega[2] + Kdwz*diff_err_omega[2] + omega_ref_dot[2]);
   T_desired[2] = -T_desired[2];
 
   float u0[4];
@@ -463,6 +476,9 @@ void AHRS::acrorate_control(float tau_ref, float omega_ref[3], float dt_in, floa
 
   // Check this new map: f_i = c1 + c2*u
   tau_ref = tau_ref + K_tau*(tau_ref - m*accel_si[2]);
+  if(tau_ref > 0.46){
+    tau_ref = 0.46;
+  }
   u0[0] = 1/(4*c2)*(tau_ref-4*c1) +(1/(4*c2*d))*T_desired[0] -(1/(4*c2*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
   u0[1] = 1/(4*c2)*(tau_ref-4*c1) -(1/(4*c2*d))*T_desired[0] -(1/(4*c2*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
   u0[2] = 1/(4*c2)*(tau_ref-4*c1) -(1/(4*c2*d))*T_desired[0] +(1/(4*c2*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
@@ -475,7 +491,8 @@ void AHRS::acrorate_control(float tau_ref, float omega_ref[3], float dt_in, floa
 
 
   //Map to the motors numbers considered by the espcopter and filter
-  float acrorate_alpha = 0.9;
+  float acrorate_alpha = 0.9-0.2 + 0.29;
+//  float acrorate_alpha = 0.4;
   u_motors[0] = (1-acrorate_alpha)*u_motors[0] + (acrorate_alpha)*u0[0];
   u_motors[1] = (1-acrorate_alpha)*u_motors[1] + (acrorate_alpha)*u0[2];
   u_motors[2] = (1-acrorate_alpha)*u_motors[2] + (acrorate_alpha)*u0[3];
@@ -498,6 +515,10 @@ void AHRS::acrorate_control(float tau_ref, float omega_ref[3], float dt_in, floa
   u_out[3] = u_motors[3];
 
 }
+
+
+
+
 
 
 
@@ -524,9 +545,10 @@ void AHRS::compute_error_derivative(float ew[3], float ew_deriv[3]){
         j = j + N_BUF_DERIV;
       }
       if(buf_t[i_ref_deriv]-buf_t[j] > MIN_TIME_DERIV){
-        ew_deriv[0] = (buf_ewx[i_ref_deriv]-buf_ewx[j])/(buf_t[i_ref_deriv]-buf_t[j]);
-        ew_deriv[1] = (buf_ewy[i_ref_deriv]-buf_ewy[j])/(buf_t[i_ref_deriv]-buf_t[j]);
-        ew_deriv[2] = (buf_ewz[i_ref_deriv]-buf_ewz[j])/(buf_t[i_ref_deriv]-buf_t[j]);
+        float dt_now = (float) (buf_t[i_ref_deriv]-buf_t[j])/(1000.0*1000.0);
+        ew_deriv[0] = (buf_ewx[i_ref_deriv]-buf_ewx[j])/(dt_now);
+        ew_deriv[1] = (buf_ewy[i_ref_deriv]-buf_ewy[j])/(dt_now);
+        ew_deriv[2] = (buf_ewz[i_ref_deriv]-buf_ewz[j])/(dt_now);
         break;
       }
     }
@@ -552,7 +574,6 @@ void AHRS::compute_error_derivative(float ew[3], float ew_deriv[3]){
 
   
 }
-
 
 
 

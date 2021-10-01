@@ -197,6 +197,7 @@ char mbuf [200]; /* ROS Debug messages */
 
 /* Timer */
 double timer_ros, log_timer_ros, dt_ros = 20, timer_freq = 0, last_loop_freq = 0, loop_freq = 0, control_loop = 0;
+double timer_ros_spin, dt_ros_spin = 2;
 
 /*********************************************************
    ARDUINO SETUP FUNCTION
@@ -362,7 +363,7 @@ void setup() {
 void loop() {
 
   /* ROS INFOS */
-  if ((millis() - log_timer_ros) > 5000 && !gyro_calibration_status && !mag_calibration_status) {
+  if ((millis() - log_timer_ros) > 2000 && !gyro_calibration_status && !mag_calibration_status) {
     log_timer_ros = millis();
     sprintf(mbuf, "\33[96m[%s] Connected at time: %d, loop_freq: %f, battery: %f\33[0m", drone_name.c_str(), millis(), last_loop_freq, (float)analogRead(A0) * 5.5);
     nh.loginfo(mbuf);
@@ -370,6 +371,14 @@ void loop() {
     //nh.loginfo(mbuf);
     //sprintf(mbuf, "\33[96m[%s] throttle: %f, motorFL: %f, motorFR: %f, motorRL: %f, motorRR: %f\33[0m", drone_name.c_str(), throttle, motorFL, motorFR, motorRL, motorRR);
     //nh.loginfo(mbuf);
+
+    sprintf(mbuf, "\33[93m[%s] X and Y gains set to: P=%.3f, I=%.3f, D=%.3f\33[0m\n", drone_name.c_str(), ahrs.Kpwx, ahrs.Kiwx, ahrs.Kdwx);
+//    sprintf(mbuf, "\33[93m[%s] Integrals: wx=%.3f, wy=%.3f, wz=%.3f\33[0m\n", drone_name.c_str(), ahrs.int_err_omega[0], ahrs.int_err_omega[1], ahrs.int_err_omega[2]);
+    nh.loginfo(mbuf);
+
+//    sprintf(mbuf, "\33[93m[%s] dt_control:%.6f\33[0m\n", drone_name.c_str(), dt_control);
+//    sprintf(mbuf, "\33[93m[%s] dt_control: %d\33[0m\n", drone_name.c_str(), dt_long);
+//    nh.loginfo(mbuf);
   }
 
   /* ROS Loop */
@@ -416,9 +425,16 @@ void loop() {
 
 
 
-    nh.spinOnce(); //[TODO] Call this more frequently?
+//    nh.spinOnce(); //[TODO] Call this more frequently?
   }
 
+
+  /* ROS Loop */
+  if (micros() - timer_ros_spin >= dt_ros_spin*1000) {
+    timer_ros_spin = micros();
+    nh.spinOnce(); //[TODO] Call this more frequently?
+
+  }
 
 
   
@@ -626,14 +642,16 @@ void mocap_callback(const geometry_msgs::PoseStamped& msg) {
 /*********************************************************
    ACRORATE REF CALLBACK
 *********************************************************/
-#define N_BUF_REF 10
-#define MIN_TIME_ACRORATEREF 0.035
-float buf_t_ref[N_BUF_REF];
+#define N_BUF_REF 20
+//#define MIN_TIME_ACRORATEREF 0.035*1000*1000
+#define MIN_TIME_ACRORATEREF 10000*3
+unsigned long buf_t_ref[N_BUF_REF];
 float buf_wx_ref[N_BUF_REF];
 float buf_wy_ref[N_BUF_REF];
 float buf_wz_ref[N_BUF_REF];
 bool start_acrorateref = false;
 int i_ref = 0;
+
 
 void acrorateref_callback(const geometry_msgs::Quaternion& msg) {
 
@@ -665,9 +683,10 @@ void acrorateref_callback(const geometry_msgs::Quaternion& msg) {
         j = j + N_BUF_REF;
       }
       if(buf_t_ref[i_ref]-buf_t_ref[j] > MIN_TIME_ACRORATEREF){
-        ahrs.omega_ref_dot[0] = (buf_wx_ref[i_ref]-buf_wx_ref[j])/(buf_t_ref[i_ref]-buf_t_ref[j]);
-        ahrs.omega_ref_dot[1] = (buf_wy_ref[i_ref]-buf_wy_ref[j])/(buf_t_ref[i_ref]-buf_t_ref[j]);
-        ahrs.omega_ref_dot[2] = (buf_wz_ref[i_ref]-buf_wz_ref[j])/(buf_t_ref[i_ref]-buf_t_ref[j]);
+        float dt_now = (float) (buf_t_ref[i_ref]-buf_t_ref[j])/(1000.0*1000.0);
+        ahrs.omega_ref_dot[0] = (buf_wx_ref[i_ref]-buf_wx_ref[j])/(dt_now);
+        ahrs.omega_ref_dot[1] = (buf_wy_ref[i_ref]-buf_wy_ref[j])/(dt_now);
+        ahrs.omega_ref_dot[2] = (buf_wz_ref[i_ref]-buf_wz_ref[j])/(dt_now);
         break;
       }
     }
@@ -692,6 +711,13 @@ void acrorateref_callback(const geometry_msgs::Quaternion& msg) {
 
 
 
+  //#######################################################################################################3
+
+
+
+
+
+
 
 
 
@@ -706,11 +732,12 @@ void acrorateref_callback(const geometry_msgs::Quaternion& msg) {
 //  ahrs.acrorateref[3] = msg.z;
 //  
 //  float dt_ref = 1/90.0;
-//  float alpha_wr_dot = 0.4;
+//  float alpha_wr_dot = 0.6-0.1;
 //
 //  ahrs.omega_ref_dot[0] = (1-alpha_wr_dot)*ahrs.omega_ref_dot[0] + alpha_wr_dot*(ahrs.acrorateref[1]-ahrs.acrorateref_last[1])/dt_ref;
 //  ahrs.omega_ref_dot[1] = (1-alpha_wr_dot)*ahrs.omega_ref_dot[1] + alpha_wr_dot*(ahrs.acrorateref[2]-ahrs.acrorateref_last[2])/dt_ref;
 //  ahrs.omega_ref_dot[2] = (1-alpha_wr_dot)*ahrs.omega_ref_dot[2] + alpha_wr_dot*(ahrs.acrorateref[3]-ahrs.acrorateref_last[3])/dt_ref;
+
 
 }
 /*********************************************************/
@@ -756,18 +783,18 @@ void setgain_callback(const geometry_msgs::Quaternion& msg) {
 //    float Kdwz = 1.5;
 
   if(msg.w == 1){ //set x and y axis
-    ahrs.Kpwx = 8 + msg.x;
-    ahrs.Kpwy = 8 + msg.x;
+    ahrs.Kpwx = 10.8 + msg.x;
+    ahrs.Kpwy = 10.8 + msg.x;
 
-    ahrs.Kiwx = 6 + msg.y;
-    ahrs.Kiwy = 6 + msg.y;
+    ahrs.Kiwx = 3.6 + msg.y/2.0;
+    ahrs.Kiwy = 3.6 + msg.y/2.0;
 
-    ahrs.Kdwx = 2.4 + msg.z;
-    ahrs.Kdwy = 2.4 + msg.z;
+    ahrs.Kdwx = 4.4 + msg.z;
+    ahrs.Kdwy = 4.4 + msg.z;
 
-    sprintf(mbuf, "\33[93m[%s] X and Y gains set to: P=%.3f, I=%.3f, D=%.3f\33[0m\n", drone_name.c_str(), ahrs.Kpwx, ahrs.Kiwx, ahrs.Kdwx);
+//    sprintf(mbuf, "\33[93m[%s] X and Y gains set to: P=%.3f, I=%.3f, D=%.3f\33[0m\n", drone_name.c_str(), ahrs.Kpwx, ahrs.Kiwx, ahrs.Kdwx);
 //    sprintf(mbuf, "\33[93m[%s] Y gains set to: P=%.3f, I=%.3f, D=%.3f\33[0m\n", drone_name.c_str(), ahrs.Kpwy, ahrs.Kiwy, ahrs.Kdwy);
-    nh.loginfo(mbuf);
+//    nh.loginfo(mbuf);
   }
 
 

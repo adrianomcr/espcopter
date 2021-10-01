@@ -26,6 +26,12 @@ void FlightControl_imu_update() {
 
 }
 
+//int aux_count = 0;
+//bool start_dt = false;
+//
+//float dt_control = 0.002;
+//unsigned long dt_long = 0;
+
 
 void FlightControl_new() {
   
@@ -34,9 +40,31 @@ void FlightControl_new() {
     ahrs.IMU_update();
   }
 
-    
-  if ((micros() - ts) > 2000) { //Update only once per 2ms (500Hz update rate)
+
+  
+  //if ((micros() - ts) > 2000) { //Update only once per 2ms (500Hz update rate)
+  if ((micros() - ts) > 1600) { //Update only once per 1.6ms (625Hz update rate)
+//  if (dt_control > 2000) { //Update only once per 2ms (500Hz update rate)
+//
+//  if(start_dt){
+////    if(micros() - ts > dt_long){
+//       dt_long = micros() - ts;
+////    }
+//    dt_control = (float) (dt_long)/1000000.0;
+//  }
+//  start_dt = true;
+
+//    aux_count++;
+//    if (aux_count > 100){
+//      dt_control
+////      if(micros() - ts > dt_long){
+////        dt_long = micros() - ts;
+////      }
+//    }
+
+//    dt_control = (float) (micros() - ts)/1000000.0;
     ts = micros();
+//    dt_control = dt_control/1000000;
 
 //    ahrs.EKF_prediction();
 
@@ -74,7 +102,10 @@ void FlightControl_new() {
 //    omega_ref[1] = 1.0*sin(ahrs.acrorateref[2]/2.0-ang[1]);
 //    omega_ref[2] = 1.0*sin((0-ang[2]));
     float u_pwm[4];
-    ahrs.acrorate_control(tau_ref, omega_ref, 0.001, u_pwm);
+//    ahrs.acrorate_control(tau_ref, omega_ref, 0.002, u_pwm);
+    ahrs.acrorate_control(tau_ref, omega_ref, 0.0016, u_pwm);
+//    ahrs.acrorate_control(tau_ref, omega_ref, dt_control, u_pwm);
+    
 
 
 //    u_pwm[0] = 00;
