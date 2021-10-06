@@ -43,7 +43,8 @@ void FlightControl_new() {
 
   
   //if ((micros() - ts) > 2000) { //Update only once per 2ms (500Hz update rate)
-  if ((micros() - ts) > 1600) { //Update only once per 1.6ms (625Hz update rate)
+  //if ((micros() - ts) > 1600) { //Update only once per 1.6ms (625Hz update rate)
+  if ((micros() - ts) > 1300) { //Update only once per 1.3ms (769Hz update rate)
 //  if (dt_control > 2000) { //Update only once per 2ms (500Hz update rate)
 //
 //  if(start_dt){

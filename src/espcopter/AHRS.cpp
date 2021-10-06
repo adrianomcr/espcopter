@@ -402,16 +402,23 @@ z_vel_b[2] = (cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi))*z_vel_w[0] + (cos(
 //#define bias_pwm_1 -15 -10
 //#define bias_pwm_2 -10
 //#define bias_pwm_3 0
-#define bias_pwm_0 0
-#define bias_pwm_1 0
-#define bias_pwm_2 0
-#define bias_pwm_3 0
+//
+//#define bias_pwm_0 0
+//#define bias_pwm_1 0
+//#define bias_pwm_2 0
+//#define bias_pwm_3 0
+//
+#define bias_pwm_0 -47
+#define bias_pwm_1 14
+#define bias_pwm_2 31
+#define bias_pwm_3 1
+
 
 #define K_tau 10.0
 #define m 0.0395
 
 #define umin 300
-#define umax 850
+#define umax 870
 
 
 
@@ -484,19 +491,19 @@ void AHRS::acrorate_control(float tau_ref, float omega_ref[3], float dt_in, floa
   u0[2] = 1/(4*c2)*(tau_ref-4*c1) -(1/(4*c2*d))*T_desired[0] +(1/(4*c2*d))*T_desired[1] +(1/(4*Kd))*T_desired[2];
   u0[3] = 1/(4*c2)*(tau_ref-4*c1) +(1/(4*c2*d))*T_desired[0] +(1/(4*c2*d))*T_desired[1] -(1/(4*Kd))*T_desired[2];
 
-  u0[0] = u0[0] + bias_pwm_0;
-  u0[1] = u0[1] + bias_pwm_1;
-  u0[2] = u0[2] + bias_pwm_2;
-  u0[3] = u0[3] + bias_pwm_3;
+//  u0[0] = u0[0] + bias_pwm_0;
+//  u0[1] = u0[1] + bias_pwm_1;
+//  u0[2] = u0[2] + bias_pwm_2;
+//  u0[3] = u0[3] + bias_pwm_3;
 
 
   //Map to the motors numbers considered by the espcopter and filter
   float acrorate_alpha = 0.9-0.2 + 0.29;
 //  float acrorate_alpha = 0.4;
-  u_motors[0] = (1-acrorate_alpha)*u_motors[0] + (acrorate_alpha)*u0[0];
-  u_motors[1] = (1-acrorate_alpha)*u_motors[1] + (acrorate_alpha)*u0[2];
-  u_motors[2] = (1-acrorate_alpha)*u_motors[2] + (acrorate_alpha)*u0[3];
-  u_motors[3] = (1-acrorate_alpha)*u_motors[3] + (acrorate_alpha)*u0[1];
+  u_motors[0] = (1-acrorate_alpha)*u_motors[0] + (acrorate_alpha)*(u0[0] + bias_pwm_0);
+  u_motors[1] = (1-acrorate_alpha)*u_motors[1] + (acrorate_alpha)*(u0[2] + bias_pwm_1);
+  u_motors[2] = (1-acrorate_alpha)*u_motors[2] + (acrorate_alpha)*(u0[3] + bias_pwm_2);
+  u_motors[3] = (1-acrorate_alpha)*u_motors[3] + (acrorate_alpha)*(u0[1] + bias_pwm_3);
 
   //Saturate cmds
   for (int ii=0; ii<4; ii++){
