@@ -142,7 +142,7 @@ void AHRS::IMU_update() {
     // Gyroscope
     gyro_int[0] = (Buf[8] << 8 | Buf[9]) - MEAN_GYRO[0];
     gyro_int[1] = (Buf[10] << 8 | Buf[11]) - MEAN_GYRO[1];
-    gyro_int[2] = Buf[12] << 8 | Buf[13] - MEAN_GYRO[2];
+    gyro_int[2] = (Buf[12] << 8 | Buf[13]) - MEAN_GYRO[2];
     //Convert to rad/s and correct the frame (x forward and z up)
     float alpha_gyro = 0.99;
     gyro[0] = (1-alpha_gyro)*gyro[0] + alpha_gyro*(gyro_int[1] / GYRO_LSB) * DEG2RAD;
@@ -179,7 +179,7 @@ void AHRS::EKF_prediction() {
 //    // Gyroscope
 //    gyro_int[0] = (Buf[8] << 8 | Buf[9]) - MEAN_GYRO[0];
 //    gyro_int[1] = (Buf[10] << 8 | Buf[11]) - MEAN_GYRO[1];
-//    gyro_int[2] = Buf[12] << 8 | Buf[13] - MEAN_GYRO[2];
+//    gyro_int[2] = (Buf[12] << 8 | Buf[13]) - MEAN_GYRO[2];
 //    //Convert to rad/s and correct the facrorate_controlrame (x forward and z up)
 //    float alpha_gyro = 0.3;
 //    gyro[0] = (1-alpha_gyro)*gyro[0] + alpha_gyro*(gyro_int[1] / GYRO_LSB) * DEG2RAD;
@@ -721,7 +721,7 @@ void AHRS::compute(float attitude[3], float rate[3], float attitudeRadian[3], fl
     // Gyroscope
     gyro_int[0] = (Buf[8] << 8 | Buf[9]) - MEAN_GYRO[0];
     gyro_int[1] = (Buf[10] << 8 | Buf[11]) - MEAN_GYRO[1];
-    gyro_int[2] = Buf[12] << 8 | Buf[13] - MEAN_GYRO[2];
+    gyro_int[2] = (Buf[12] << 8 | Buf[13]) - MEAN_GYRO[2];
 
     for (i = 0; i < 3 ; i++) {
       // Get Gyro

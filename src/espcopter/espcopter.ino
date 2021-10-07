@@ -1009,7 +1009,7 @@ void gyro_calibration_update() {
       ahrs.MEAN_GYRO[i] = ahrs.SUM_GYRO[i] / gyro_samples;
       if (ahrs.MEAN_GYRO[i] < 0) {
         EEPROM.write(4 + i, 1);
-        EEPROM.write(1 + i, -(int8_t)(ahrs.MEAN_GYRO[i]));
+        EEPROM.write(1 + i, (int8_t)(-ahrs.MEAN_GYRO[i]));
       } else {
         EEPROM.write(4 + i, 0);
         EEPROM.write(1 + i, (int8_t)(ahrs.MEAN_GYRO[i]));
