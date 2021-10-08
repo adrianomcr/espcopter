@@ -417,8 +417,8 @@ z_vel_b[2] = (cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi))*z_vel_w[0] + (cos(
 #define K_tau 10.0
 #define m 0.0395
 
-#define umin 300
-#define umax 870
+#define umin 400
+#define umax 950
 
 
 

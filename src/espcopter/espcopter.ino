@@ -45,7 +45,7 @@
 //#define ros_flag_mocap 1                    //subscribe to mocap data
 //#define ros_flag_filter 1                   //publish filter data
 #define ros_flag_acrorateref 1                //subscribe to acrorate refference
-#define ros_flag_setgain 1                    //subscribe to topic to set the PID gains
+//#define ros_flag_setgain 1                    //subscribe to topic to set the PID gains
 #define ros_flag_pwms 1                       //publish the computed pwms
 /*********************************************************/
 
