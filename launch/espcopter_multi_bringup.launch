@@ -1,0 +1,24 @@
+<launch>
+    <!-- <node pkg="rosserial_server" type="socket_node" name="hero_bringup" output="screen">
+    </node> -->
+
+
+
+    <node pkg="rosserial_python" type="serial_node.py" name="hero_bringup_1" output="screen">
+        <param name="fork_server" value="True"/>
+        <param name="port" value="tcp"/>
+        <param name="tcp_port" value="11411"/>
+    </node>
+
+    <!-- <node pkg="rosserial_python" type="serial_node.py" name="hero_bringup_2" output="screen">
+        <param name="fork_server" value="True"/>
+        <param name="port" value="tcp"/>
+        <param name="tcp_port" value="11412"/>
+    </node> -->
+
+
+
+
+
+
+</launch>

@@ -211,11 +211,12 @@ void setup() {
   Serial.println("[ROS] Setting up...");
 
   /* Start ROS communication module */
-  uint16_t ROS_MASTER_PORT = 11411;
+  uint16_t ROS_MASTER_PORT = 11412;
   nh.getHardware()->setConnection(ROS_MASTER_ADDRESS, ROS_MASTER_PORT);
 
   /* Setup laser publisher */
-  drone_name = String("/drone_1");
+//  drone_name = String("/drone_1");
+  drone_name = String("/drone_2");
 
 #ifdef ros_flag_led
   led_topic = drone_name + String("/led");
@@ -644,7 +645,7 @@ void mocap_callback(const geometry_msgs::PoseStamped& msg) {
 *********************************************************/
 #define N_BUF_REF 20
 //#define MIN_TIME_ACRORATEREF 0.035*1000*1000
-#define MIN_TIME_ACRORATEREF 10000*3
+#define MIN_TIME_ACRORATEREF 10000*(3-1)
 unsigned long buf_t_ref[N_BUF_REF];
 float buf_wx_ref[N_BUF_REF];
 float buf_wy_ref[N_BUF_REF];
