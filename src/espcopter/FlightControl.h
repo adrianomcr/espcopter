@@ -44,7 +44,8 @@ void FlightControl_new() {
   
   //if ((micros() - ts) > 2000) { //Update only once per 2ms (500Hz update rate)
   //if ((micros() - ts) > 1600) { //Update only once per 1.6ms (625Hz update rate)
-  if ((micros() - ts) > 1300) { //Update only once per 1.3ms (769Hz update rate)
+//  if ((micros() - ts) > 1300) { //Update only once per 1.3ms (769Hz update rate)
+  if ((micros() - ts) > 1000) { //Update only once per 1.3ms (769Hz update rate)
 //  if (dt_control > 2000) { //Update only once per 2ms (500Hz update rate)
 //
 //  if(start_dt){
@@ -54,6 +55,16 @@ void FlightControl_new() {
 //    dt_control = (float) (dt_long)/1000000.0;
 //  }
 //  start_dt = true;
+
+  long dt_long = micros() - ts;
+  float dt_control = (float) (dt_long)/1000000.0;
+  if (dt_control < 0){
+    dt_control = 0.001;
+  }
+  else if(dt_control > 0.003){
+    dt_control = 0.003;
+  }
+
 
 //    aux_count++;
 //    if (aux_count > 100){
@@ -104,8 +115,8 @@ void FlightControl_new() {
 //    omega_ref[2] = 1.0*sin((0-ang[2]));
     float u_pwm[4];
 //    ahrs.acrorate_control(tau_ref, omega_ref, 0.002, u_pwm);
-    ahrs.acrorate_control(tau_ref, omega_ref, 0.0016, u_pwm);
-//    ahrs.acrorate_control(tau_ref, omega_ref, dt_control, u_pwm);
+//    ahrs.acrorate_control(tau_ref, omega_ref, 0.0010, u_pwm);
+    ahrs.acrorate_control(tau_ref, omega_ref, dt_control, u_pwm);
     
 
 

@@ -409,18 +409,18 @@ z_vel_b[2] = (cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi))*z_vel_w[0] + (cos(
 //#define bias_pwm_3 0
 //
 
-////Experimental - drone_1
-//#define bias_pwm_0 -47
-//#define bias_pwm_1 14
-//#define bias_pwm_2 31
-//#define bias_pwm_3 1
+//Experimental - drone_1
+#define bias_pwm_0 -47
+#define bias_pwm_1 14
+#define bias_pwm_2 31
+#define bias_pwm_3 1
 
-//Experimental - drone_2
-#define bias_pwm_0 58
-#define bias_pwm_1 47
-#define bias_pwm_2 -39
-#define bias_pwm_3 -67
-//58.4211   47.4429  -39.2762  -66.5878
+////Experimental - drone_2
+//#define bias_pwm_0 58
+//#define bias_pwm_1 47
+//#define bias_pwm_2 -39
+//#define bias_pwm_3 -67
+////58.4211   47.4429  -39.2762  -66.5878
 
 
 #define K_tau 10.0

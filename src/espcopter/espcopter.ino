@@ -53,11 +53,17 @@
 /*********************************************************
    WIFI SETUP
 *********************************************************/
-IPAddress ROS_MASTER_ADDRESS(192, 168, 2, 6); // ros master ip
+//IPAddress ROS_MASTER_ADDRESS(192, 168, 2, 6); // ros master ip
 //char* WIFI_SSID = "hero_network"; // network name
 //char* WIFI_PASSWD = "s3cr3tp4ss"; // network password
-char* WIFI_SSID = "corowap2G"; // network name
-char* WIFI_PASSWD = "corowap2G"; // network password
+//char* WIFI_SSID = "corowap2G"; // network name
+//char* WIFI_PASSWD = "corowap2G"; // network password
+
+IPAddress ROS_MASTER_ADDRESS(10, 42, 0, 1); // ros master ip
+char* WIFI_SSID = "inspiron"; // network name
+char* WIFI_PASSWD = "PgFxGCF9"; // network password
+
+
 /*********************************************************/
 
 
@@ -211,12 +217,12 @@ void setup() {
   Serial.println("[ROS] Setting up...");
 
   /* Start ROS communication module */
-  uint16_t ROS_MASTER_PORT = 11412;
+  uint16_t ROS_MASTER_PORT = 11411;
   nh.getHardware()->setConnection(ROS_MASTER_ADDRESS, ROS_MASTER_PORT);
 
   /* Setup laser publisher */
-//  drone_name = String("/drone_1");
-  drone_name = String("/drone_2");
+  drone_name = String("/drone_1");
+//  drone_name = String("/drone_2");
 
 #ifdef ros_flag_led
   led_topic = drone_name + String("/led");
